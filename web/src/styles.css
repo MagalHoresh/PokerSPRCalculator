@@ -217,6 +217,7 @@ dialog h3 { font-size: 16px; margin-top: 20px; }
   .plan-top > div { gap: 5px; }
   .plan-top h2 { font-size: 18px; }
   .plan-top span { font-size: 10px; }
+  .plan-top .over-pot { color: var(--accent); }
   .percentage .number { --size: 22px; }
   .bet-path { grid-template-columns: repeat(var(--steps),minmax(0,1fr)); gap: 10px; }
   .bet-step { padding: 6px 5px 4px; min-height: 74px; }
@@ -238,6 +239,11 @@ dialog h3 { font-size: 16px; margin-top: 20px; }
   .over-pot { font-size: 10px; }
   .postflop .calculation-note { display: none; }
   .postflop .calculation-note:has([data-math-error="true"]) { display: block; }
+  .mobile-reference { border-top: 1px solid var(--line); padding-top: 1px; }
+  .mobile-reference caption { color: var(--muted); font-size: 11px; line-height: 1.2; text-align: start; }
+  .mobile-reference th, .mobile-reference td { font-size: 11px; line-height: 1; padding: 0; letter-spacing: 0; }
+  .mobile-reference tbody tr:first-child { color: var(--teal); }
+  .mobile-reference tbody tr:last-child { color: var(--blue); }
   .preflop > .amount-field { max-width: none; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 5px 8px; }
   .preflop > .amount-field label, .preflop > .amount-field .field-error { grid-column: 1 / -1; }
   .preflop .calculation-note { min-height: 0; }
@@ -261,28 +267,26 @@ dialog h3 { font-size: 16px; margin-top: 20px; }
 }
 @media (max-height: 600px) and (max-width: 960px) {
   body { padding-block: max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-bottom)); }
-  .app-header { margin-bottom: 4px; }
-  .mobile-tabs { padding: 2px; margin-bottom: 4px; }
+  .app-header { margin-bottom: 1px; }
+  .mobile-tabs { padding: 2px; margin-bottom: 1px; }
   .panel { padding: 6px; }
-  .postflop, .preflop { gap: 5px; }
-  .primary-inputs { row-gap: 4px; }
-  .street-plans { gap: 4px; }
-  .street-plan { padding: 3px 4px; }
-  .bet-step { padding-block: 4px 3px; min-height: 68px; }
-  .bet-label { min-height: 16px; }
+  .postflop { padding: 4px; gap: 2px; }
+  .preflop { gap: 5px; }
+  .postflop .amount-field { gap: 3px; }
+  .primary-inputs { row-gap: 2px; }
+  .spr-display { padding-top: 2px; }
+  .street-plans { gap: 2px; }
+  .street-plan { padding: 2px 4px; gap: 2px; }
+  .bet-step { padding-block: 3px 2px; min-height: 62px; }
+  .bet-label { min-height: 12px; }
+  .bet-step .copy { padding-block-start: 3px; }
   .bet-step .number { min-height: 32px; }
+  .number[data-wrap="true"] { line-height: 1; }
   .raise-group + .raise-group { padding-top: 6px; }
 }
 @media (display-mode: standalone) and (max-width: 600px) and (min-height: 550px) {
   /* Keep controls below the Home Screen host's soft top scroll edge. */
   .app-header { margin-top: 24px; }
-  @media (max-height: 600px) {
-    .postflop { gap: 2px; }
-    .primary-inputs { row-gap: 2px; }
-    .street-plans { gap: 2px; }
-    .street-plan { gap: 2px; padding-block: 2px; }
-    .bet-step { padding-block: 3px 2px; }
-  }
 }
 @media (max-width: 300px) {
   .app-header, .toolbar { flex-wrap: wrap; }

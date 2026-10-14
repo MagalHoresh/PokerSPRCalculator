@@ -76,6 +76,7 @@ function update() {
     put(`percent-${streets}`, plan ? percent(plan.fraction, separator) : null);
     for (let number = 1; number <= streets; number++) put(`bet-${streets}-${number}`, plan ? amount(plan.bets[number - 1], separator) : null);
     $(`over-${streets}`).hidden = !(plan?.fraction > 1 + 1e-12);
+    placePlanWarning(streets);
   }
   for (const kind of RAISES) {
     const size = result.preflop?.find((entry) => entry.id === kind.id);
@@ -153,22 +154,32 @@ function localize() {
 }
 
 function renderReference() {
-  const rows = [2, 3].map((streets) => {
-    const row = document.createElement("tr");
-    const header = document.createElement("th");
-    header.scope = "row";
-    header.dir = "ltr";
-    header.textContent = `${streets}e`;
-    row.append(header);
-    for (const ratio of [2, 3, 4, 7, 10, 13, 30]) {
-      const cell = document.createElement("td");
-      cell.dir = "ltr";
-      cell.textContent = percent(fraction(ratio, streets), separator).text;
-      row.append(cell);
-    }
-    return row;
-  });
-  $("reference-body").replaceChildren(...rows);
+  for (const [id, ratios] of [["reference-body", [2, 3, 4, 7, 10, 13, 30]], ["mobile-reference-body", [2, 3, 4, 5]]]) {
+    const rows = [2, 3].map((streets) => {
+      const row = document.createElement("tr");
+      const header = document.createElement("th");
+      header.scope = "row";
+      header.dir = "ltr";
+      header.textContent = `${streets}e`;
+      row.append(header);
+      for (const ratio of ratios) {
+        const cell = document.createElement("td");
+        cell.dir = "ltr";
+        cell.textContent = percent(fraction(ratio, streets), separator).text;
+        row.append(cell);
+      }
+      return row;
+    });
+    $(id).replaceChildren(...rows);
+  }
+}
+
+function placePlanWarning(streets) {
+  const warning = $(`over-${streets}`);
+  const plan = warning.closest(".street-plan");
+  const target = mobile.matches ? plan.querySelector(".plan-top > div") : plan;
+  if (warning.parentElement !== target) target.append(warning);
+  plan.querySelector(`[data-t="streets${streets}"]`).hidden = mobile.matches && !warning.hidden;
 }
 
 function focusField(field) {
@@ -297,6 +308,7 @@ function mobileLayout() {
   else referenceMarker.after(reference);
   $("stack").enterKeyHint = mobile.matches ? "go" : "done";
   $("facingBet").enterKeyHint = mobile.matches ? "go" : "done";
+  for (const streets of [2, 3]) placePlanWarning(streets);
   selectTab(state.tab);
 }
 for (const kind of ["postflop", "preflop"]) {

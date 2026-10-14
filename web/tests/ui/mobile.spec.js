@@ -15,7 +15,7 @@ async function screen(page, tab, state) {
   const metrics = await page.evaluate(() => {
     const doc = document.documentElement;
     const active = document.querySelector('.panel:not([hidden])');
-    const visible = [...active.querySelectorAll("input, output.number, .amount-field label, .plan-top h2, .plan-top span, .bet-label strong, .step-context strong, .raise-group h3, .raise-target > span, [data-go]")];
+    const visible = [...active.querySelectorAll("input, output.number, .amount-field label, .plan-top h2, .plan-top span:not([hidden]), .bet-label strong, .step-context strong, .raise-group h3, .raise-target > span, [data-go], .mobile-reference caption, .mobile-reference th, .mobile-reference td")];
     return {
       width: doc.clientWidth, height: doc.clientHeight,
       scrollWidth: doc.scrollWidth, scrollHeight: doc.scrollHeight,
@@ -29,6 +29,17 @@ async function screen(page, tab, state) {
           || box.y < -1 || box.bottom > doc.clientHeight + 1;
       }).map((node) => ({ id: node.id, text: node.textContent, box: node.getBoundingClientRect().toJSON() })),
       panel: active.getBoundingClientRect().toJSON(),
+      reference: {
+        visible: Boolean(document.querySelector(".mobile-reference").getBoundingClientRect().width),
+        position: getComputedStyle(document.querySelector(".mobile-reference")).position,
+        top: document.querySelector(".mobile-reference").getBoundingClientRect().top,
+        plansBottom: document.querySelector(".street-plans").getBoundingClientRect().bottom,
+        caption: document.querySelector(".mobile-reference caption").textContent,
+        headers: [...document.querySelectorAll(".mobile-reference thead th")].map((node) => node.textContent),
+        rows: [...document.querySelectorAll("#mobile-reference-body tr")].map((row) => [...row.children].map((node) => node.textContent)),
+        fonts: [...document.querySelectorAll(".mobile-reference th, .mobile-reference td")].map((node) => parseFloat(getComputedStyle(node).fontSize)),
+        directions: [...document.querySelectorAll("#mobile-reference-body td")].map((node) => getComputedStyle(node).direction),
+      },
     };
   });
   expect(metrics.scrollWidth, JSON.stringify(metrics)).toBeLessThanOrEqual(metrics.width);
@@ -43,11 +54,22 @@ async function screen(page, tab, state) {
     if (state === "extreme" && /^(bet|raise)-/.test(output.id)) expect(output.font, output.id).toBeGreaterThanOrEqual(20);
   }
   if (tab === "postflop") {
+    expect(metrics.reference.visible).toBe(true);
+    expect(metrics.reference.position).toBe("static");
+    expect(metrics.reference.top).toBeGreaterThanOrEqual(metrics.reference.plansBottom);
+    expect(metrics.reference.caption).toMatch(/% of pot|אחוז מהקופה/);
+    expect(metrics.reference.headers).toEqual(["SPR", "2", "3", "4", "5"]);
+    expect(metrics.reference.rows).toEqual([
+      ["2e", "61.8%", "82.3%", "100%", "115.8%"],
+      ["3e", "35.5%", "45.6%", "54.0%", "61.2%"],
+    ]);
+    expect(metrics.reference.directions).toEqual(Array(8).fill("ltr"));
+    expect(Math.min(...metrics.reference.fonts)).toBeGreaterThanOrEqual(11);
     for (const kind of ["two", "three"]) {
       const y = await page.locator(`.${kind} .bet-step`).evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().y));
       expect(new Set(y).size, `${kind} cards are side by side`).toBe(1);
     }
-  }
+  } else expect(metrics.reference.visible).toBe(false);
 }
 
 async function standaloneCSS(page) {
@@ -288,6 +310,7 @@ test("mobile Go/Enter, tab keyboard navigation and persistent editing", async ({
   await expect(page.locator("#postflop-panel")).toBeVisible();
   await expect(page.locator("#preflop")).toBeVisible();
   await expect(page.locator(".reference")).toBeVisible();
+  await expect(page.locator(".mobile-reference")).toBeHidden();
   await expect(page.locator('[data-go="preflop"]')).toBeHidden();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator("#postflop-panel")).toBeHidden();

@@ -40,8 +40,12 @@ and instructions explain manual copying instead of silently reporting success.
   by default with both complete plans; **3-bet / 4-bet** contains all four
   targets, including 2.4x and 2.6x. Tab changes preserve inputs and live results.
   Each tab fits the tested normal portrait screens without page scrolling with
-  the keyboard closed. The **?** button opens help, the derived SPR reference
-  and the public GitHub link in a separately scrollable dialog.
+  the keyboard closed. The first tab also always shows a compact **SPR 2/3/4/5**
+  reference at the bottom, with both 2e/3e rows labelled as percentages of pot.
+  It uses the same unrounded core and one-decimal formatter, independently of
+  hand inputs; SPR 5 shows 115.8% and 61.2%. It is normal page content, not an
+  overlapping fixed overlay. The **?** button opens help, the full derived SPR
+  reference and the public GitHub link in a separately scrollable dialog.
 - Hebrew text/layout is right-to-left. Numerical values, percentage signs,
   decimal editing and clipboard amounts remain left-to-right. Switching language
   preserves the active input's value and selection and updates its alignment.
