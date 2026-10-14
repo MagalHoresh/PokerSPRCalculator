@@ -44,7 +44,9 @@ and instructions explain manual copying instead of silently reporting success.
   reference at the bottom, with both 2e/3e rows labelled as percentages of pot.
   It uses the same unrounded core and one-decimal formatter, independently of
   hand inputs; SPR 5 shows 115.8% and 61.2%. It is normal page content, not an
-  overlapping fixed overlay. The **?** button opens help, the full derived SPR
+  overlapping fixed overlay. The reference uses 13px figures with separated
+  rows and a centered table no wider than 300px, keeping related columns close.
+  The **?** button opens help, the full derived SPR
   reference and the public GitHub link in a separately scrollable dialog.
 - Hebrew text/layout is right-to-left. Numerical values, percentage signs,
   decimal editing and clipboard amounts remain left-to-right. Switching language
@@ -78,11 +80,15 @@ and instructions explain manual copying instead of silently reporting success.
   it is not trapped into a three-field loop.
 - Native keep-on-top and OS menu-bar commands have no browser equivalent.
   Browsers/platform fonts can differ visually without changing calculation rules.
-- Home Screen standalone mode reserves a 24px blank buffer below the existing
-  top safe-area inset on normal-height phones, moving header controls away from
-  the host's soft scroll edge. On small phones, tighter card gaps/padding pay
-  for this buffer without shrinking digits or touch targets. Browser tabs and
-  keyboard/reduced-height layouts below 550px keep their existing spacing.
+- Mobile reserves a blank buffer below the existing top safe-area inset,
+  independent of whether a saved shortcut reports standalone display mode:
+  48px on portrait viewports at least 700px tall, 32px at 550–699px and 16px
+  at 500–549px. This moves all content, including the language control, lower.
+  Smaller keyboard/reduced-height layouts keep their existing top spacing.
+  Small-phone card gaps/padding remain compact without shrinking main digits
+  or touch targets. Desktop spacing is unchanged.
+  On short screens, invalid plans use smaller unavailable dashes so error text
+  stays visible; valid bet figures keep their existing sizes and full values.
   No install metadata, zoom or scrolling permissions are disabled.
 
 ## Verification
@@ -121,12 +127,13 @@ TalkBack audit. OS keyboard overlays, browser chrome and safe-area behavior stil
 depend on the actual device. Clipboard mocks test success/denial logic; an additional Chromium check exercises
 real clipboard writes/reads in the approved secure context. WebKit's automation
 does not expose that permission grant, so that additional check is skipped there.
-Header regressions also exercise the published standalone CSS declarations with
-their media condition forced, and synthetic safe-area insets, in both engines.
+Header regressions exercise top clearance without standalone-mode detection,
+and synthetic safe-area insets, in both engines.
 These check layout, sharp CSS rendering, touch/keyboard focus and no-scroll
 behavior, not the physical iOS Home Screen compositor. The reported native
-top-edge haze is not reproducible in desktop WebKit; the blank buffer is a
-targeted mitigation, not a claim to disable the OS effect.
+top-edge haze is not reproducible in desktop WebKit. The earlier standalone-only
+24px buffer did not resolve it on the user's shortcut; the larger, mode-independent
+buffer remains a spacing mitigation, not a claim to disable or reproduce the OS effect.
 
 ## Hosting scope
 

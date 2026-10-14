@@ -39,6 +39,9 @@ async function screen(page, tab, state) {
         rows: [...document.querySelectorAll("#mobile-reference-body tr")].map((row) => [...row.children].map((node) => node.textContent)),
         fonts: [...document.querySelectorAll(".mobile-reference th, .mobile-reference td")].map((node) => parseFloat(getComputedStyle(node).fontSize)),
         directions: [...document.querySelectorAll("#mobile-reference-body td")].map((node) => getComputedStyle(node).direction),
+        tableWidth: document.querySelector(".mobile-reference table").getBoundingClientRect().width,
+        rowHeights: [...document.querySelectorAll(".mobile-reference tr")].map((node) => node.getBoundingClientRect().height),
+        columns: [...document.querySelectorAll(".mobile-reference thead th")].slice(1).map((node) => node.getBoundingClientRect().width),
       },
     };
   });
@@ -64,7 +67,10 @@ async function screen(page, tab, state) {
       ["3e", "35.5%", "45.6%", "54.0%", "61.2%"],
     ]);
     expect(metrics.reference.directions).toEqual(Array(8).fill("ltr"));
-    expect(Math.min(...metrics.reference.fonts)).toBeGreaterThanOrEqual(11);
+    expect(Math.min(...metrics.reference.fonts)).toBeGreaterThanOrEqual(13);
+    expect(metrics.reference.tableWidth).toBeLessThanOrEqual(300);
+    expect(Math.min(...metrics.reference.rowHeights)).toBeGreaterThanOrEqual(17.5);
+    expect(Math.max(...metrics.reference.columns)).toBeLessThanOrEqual(69);
     for (const kind of ["two", "three"]) {
       const y = await page.locator(`.${kind} .bet-step`).evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().y));
       expect(new Set(y).size, `${kind} cards are side by side`).toBe(1);
@@ -72,23 +78,7 @@ async function screen(page, tab, state) {
   } else expect(metrics.reference.visible).toBe(false);
 }
 
-async function standaloneCSS(page) {
-  // Neither desktop engine emulates the iOS Home Screen host. Force only its
-  // media condition, leaving the published declarations and size queries intact.
-  const count = await page.evaluate(() => {
-    let count = 0;
-    for (const sheet of document.styleSheets) for (const rule of sheet.cssRules) {
-      if (rule instanceof CSSMediaRule && rule.conditionText.includes("(display-mode: standalone)")) {
-        rule.media.mediaText = rule.conditionText.replace("(display-mode: standalone)", "(min-width: 0px)");
-        count++;
-      }
-    }
-    return count;
-  });
-  expect(count).toBe(1);
-}
-
-async function sharpHeader(page, standalone) {
+async function sharpHeader(page) {
   const metrics = await page.evaluate(() => {
     const header = document.querySelector(".app-header");
     const visible = [header, document.documentElement, document.body, ...header.querySelectorAll("*")]
@@ -109,7 +99,8 @@ async function sharpHeader(page, standalone) {
       width: document.documentElement.clientWidth, height: document.documentElement.clientHeight,
     };
   });
-  const buffer = standalone && metrics.width <= 600 && metrics.height >= 550 ? 24 : 0;
+  const buffer = metrics.width > 600 || metrics.height < 500 ? 0
+    : metrics.height < 550 ? 16 : metrics.height < 700 ? 32 : 48;
   expect(metrics.effects).toEqual([]);
   expect(metrics.margin).toBe(`${buffer}px`);
   expect(metrics.top).toBeCloseTo(metrics.padding + buffer, 1);
@@ -122,13 +113,12 @@ async function sharpHeader(page, standalone) {
   }
 }
 
-for (const [width, height] of [[320, 568], [390, 844], [402, 874]]) for (const standalone of [false, true]) {
-  test(`mobile sharp header ${width}x${height} ${standalone ? "standalone CSS" : "browser"}`, async ({ page }, info) => {
+for (const [width, height] of [[320, 518], [320, 568], [390, 844], [402, 874]]) {
+  test(`mobile lower sharp header ${width}x${height}`, async ({ page }, info) => {
     test.setTimeout(60_000);
     await page.setViewportSize({ width, height });
     await start(page);
-    if (standalone) await standaloneCSS(page);
-    await sharpHeader(page, standalone);
+    await sharpHeader(page);
     for (const language of ["en", "he"]) for (const theme of ["light", "dark"]) {
       await page.locator("#theme").selectOption(theme);
       await page.locator("#tab-postflop").tap();
@@ -140,17 +130,17 @@ for (const [width, height] of [[320, 568], [390, 844], [402, 874]]) for (const s
       await expect(page.locator(`#lang-${language}`)).toHaveAttribute("aria-pressed", "true");
       await expect(page.locator("#stack")).toBeFocused();
       expect(await page.locator("#stack").evaluate((node) => [node.selectionStart, node.selectionEnd])).toEqual([1, 3]);
-      await sharpHeader(page, standalone);
+      await sharpHeader(page);
       await page.locator('[data-go="postflop"]').tap();
       await expect(page.locator("#stack")).not.toBeFocused();
       await screen(page, "postflop", "valid");
       await page.locator(".app-header").screenshot({ path: info.outputPath(`header-${language}-${theme}.png`) });
-      if (standalone) await page.screenshot({ path: info.outputPath(`screen-${language}-${theme}.png`) });
+      await page.screenshot({ path: info.outputPath(`screen-${language}-${theme}.png`) });
       await page.locator("#tab-preflop").tap();
       await page.locator("#facingBet").fill("3");
       await page.locator('[data-go="preflop"]').tap();
       await screen(page, "preflop", "valid");
-      await sharpHeader(page, standalone);
+      await sharpHeader(page);
     }
     await page.locator("#lang-en").focus();
     await page.keyboard.press("Tab");
@@ -164,21 +154,26 @@ for (const [width, height] of [[320, 568], [390, 844], [402, 874]]) for (const s
     await expect(page.locator("#theme")).toBeFocused();
     expect(await page.locator(".theme-control").evaluate((node) => getComputedStyle(node).outlineWidth)).toBe("3px");
     await page.setViewportSize({ width: 320, height: 518 });
-    await sharpHeader(page, standalone);
+    await sharpHeader(page);
     await page.setViewportSize({ width, height: 300 });
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await page.evaluate(() => window.scrollTo(0, 0));
-    await sharpHeader(page, standalone);
+    await sharpHeader(page);
     await page.setViewportSize({ width, height });
-    await sharpHeader(page, standalone);
+    await sharpHeader(page);
     await screen(page, "preflop", "valid");
+    for (const height of [499, 500, 549, 550, 699, 700, 701]) {
+      await page.setViewportSize({ width, height });
+      await sharpHeader(page);
+    }
   });
 }
 
-test("standalone header buffer preserves portrait no-scroll and synthetic safe areas", async ({ page }) => {
+test("mobile top clearance works without standalone detection and with synthetic safe areas", async ({ page }) => {
   test.setTimeout(90_000);
   await start(page);
-  await standaloneCSS(page);
+  expect(await page.evaluate(() => [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules])
+    .some((rule) => rule instanceof CSSMediaRule && rule.conditionText.includes("display-mode")))).toBe(false);
   for (const [width, height] of [[320, 518], [320, 568], [360, 640], [375, 667], [390, 844], [430, 932]]) {
     await page.setViewportSize({ width, height });
     for (const language of ["en", "he"]) for (const theme of ["light", "dark"]) for (const state of ["empty", "valid", "error"]) {
@@ -191,7 +186,7 @@ test("standalone header buffer preserves portrait no-scroll and synthetic safe a
         await page.locator("#stack").fill(state === "valid" ? "241.6" : "0");
         await page.locator('[data-go="postflop"]').tap();
       }
-      await sharpHeader(page, true);
+      await sharpHeader(page);
       await screen(page, "postflop", state);
       await page.locator("#tab-preflop").click();
       if (state !== "empty") {
@@ -204,7 +199,6 @@ test("standalone header buffer preserves portrait no-scroll and synthetic safe a
   for (const [width, height, top, bottom] of [[320, 568, 20, 0], [390, 844, 59, 34], [402, 874, 62, 34]]) {
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-ready", "true");
-    await standaloneCSS(page);
     // Substitute test insets in CSSOM; this does not reproduce native chrome.
     await page.evaluate(({ top, bottom }) => {
       const visit = (rules) => {
@@ -222,8 +216,8 @@ test("standalone header buffer preserves portrait no-scroll and synthetic safe a
     await page.locator("#pot").fill("oops");
     await page.locator("#stack").fill("0");
     await page.locator('[data-go="postflop"]').tap();
-    await sharpHeader(page, true);
-    expect(await page.locator(".app-header").evaluate((node) => node.getBoundingClientRect().top)).toBe(top + 24);
+    await sharpHeader(page);
+    expect(await page.locator(".app-header").evaluate((node) => node.getBoundingClientRect().top)).toBe(top + (height < 700 ? 32 : 48));
     await screen(page, "postflop", "error");
     await page.locator("#tab-preflop").click();
     await screen(page, "preflop", "empty");
@@ -373,16 +367,15 @@ test("mobile help/reference/source without main scroll; accessible reduced-heigh
   }
 });
 
-for (const standalone of [false, true]) test(`mobile tiny and largest amounts retain full LTR text, safe copying and one-screen plans ${standalone ? "standalone CSS" : "browser"}`, async ({ page }) => {
+for (const height of [518, 568]) test(`mobile tiny and largest amounts retain full LTR text, safe copying and one-screen plans 320x${height}`, async ({ page }) => {
   await page.addInitScript(() => {
     window.__copied = [];
     Object.defineProperty(navigator, "clipboard", {
       configurable: true, value: { writeText: async (value) => { window.__copied.push(value); } },
     });
   });
-  await page.setViewportSize({ width: 320, height: 568 });
+  await page.setViewportSize({ width: 320, height });
   await start(page);
-  if (standalone) await standaloneCSS(page);
   for (const language of ["en", "he"]) for (const theme of ["light", "dark"]) {
     await page.locator(`#lang-${language}`).click();
     await page.locator("#theme").selectOption(theme);
