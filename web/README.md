@@ -36,18 +36,26 @@ and instructions explain manual copying instead of silently reporting success.
 - Pot and the smaller effective remaining stack are the first inputs, visible
   together at startup on narrow screens. No mobile autofocus or keyboard popup.
 - Desktop shows both full geometric plans and all four independent raise-to
-  values together. Mobile uses a legible vertical flow; preflop/reference follow.
+  values together, unchanged. Mobile has two accessible tabs: **2e / 3e** opens
+  by default with both complete plans; **3-bet / 4-bet** contains all four
+  targets, including 2.4x and 2.6x. Tab changes preserve inputs and live results.
+  Each tab fits the tested normal portrait screens without page scrolling with
+  the keyboard closed. The **?** button opens help, the derived SPR reference
+  and the public GitHub link in a separately scrollable dialog.
 - Hebrew text/layout is right-to-left. Numerical values, percentage signs,
   decimal editing and clipboard amounts remain left-to-right. Switching language
   preserves the active input's value and selection and updates its alignment.
   Large bet/raise amounts align with their labels: left in English and right
   in Hebrew, without reversing digits or changing the centered reference table.
 - Results use high-contrast tabular numbers, with a dominant **BET NOW** value.
-  Full magnitudes are retained, never ellipsized. Very large values shrink to fit.
+  Full magnitudes are retained, never ellipsized. Very large values shrink to fit;
+  mobile card values wrap at 20px rather than shrinking into unreadable digits.
 - Each plan is an ordered path: **Bet now → Turn → River / All-in** for 3e
   (starting on the flop), or **Bet now → River / All-in** for 2e (starting on
-  the turn). All amounts stay visible together; arrows mirror in Hebrew and
-  point downward on mobile. There is no animation or waiting to reveal a bet.
+  the turn). Both plans and every bet stay visible together on the first mobile
+  tab. Their cards are side by side, with arrows mirrored in Hebrew. Extremely
+  narrow, zoom-equivalent layouts stack cards with downward arrows and allow
+  natural scrolling instead of clipping. There is no animation or delayed bet.
 - Light/dark/system controls, reduced motion, increased contrast and forced-color
   CSS, focus rings, input labels/errors and a focus-contained assumptions dialog.
   Appearance uses a rounded keyboard-focus ring around the whole control,
@@ -55,7 +63,13 @@ and instructions explain manual copying instead of silently reporting success.
   Amount inputs use one accent border when focused, without a second outer
   ring or shadow. Invalid input keeps its error border and visible error text;
   forced-color mode uses the system highlight for the focused field.
-- Alt+1/2/3 select inputs, Enter advances (touch devices finish after stack),
+- Mobile **Go** deliberately blurs the active input, preserving its text and
+  selection and showing actionable errors for missing/unfinished values. It is
+  not a calculate button: results remain live, with no timer or typing-triggered
+  keyboard dismissal. Pot uses decimal input mode and a Next hint; Enter advances
+  to stack. Stack/facing size use a Go hint, and Enter finishes editing.
+- Alt+1/2/3 select inputs and open the appropriate mobile tab; desktop Enter
+  behavior is unchanged. Arrow/Home/End keys operate the mobile tab list.
   Alt+N clears. Normal Tab navigation includes interactive buttons and links;
   it is not trapped into a three-field loop.
 - Native keep-on-top and OS menu-bar commands have no browser equivalent.
@@ -75,12 +89,22 @@ npm run test:ui
 ```
 
 Approved Playwright checks are scoped to this app. Chromium and WebKit cover
-320/360/390/430px mobile widths, 844px landscape, 1280/1440px desktop, touch
+320/360/375/390/430px mobile widths, 844px landscape, 1280/1440px desktop, touch
 emulation, reduced-height/keyboard-like viewport changes, 200%-equivalent layout,
 English/Hebrew live switching, actual input/copy/reset flow, invalidation, both
 themes/system media changes, focus restoration, explicit clipboard denial,
 comma locale, no calculation network traffic or storage, visible startup inputs,
 minimum font sizes and no horizontal overflow. Screenshots capture this page only.
+The dedicated mobile matrix measures actual document client/scroll dimensions
+and bounds of every core amount/label on **both tabs**, in English/Hebrew,
+light/dark, and empty/valid/error states at **320x568, 360x640, 375x667,
+390x844, 430x932**, plus **320x518** to reserve additional browser height.
+Normal bet amounts remain at least 30px and raise targets at least 36px in that
+matrix. Largest/tiny inputs retain their full text and safe copy behavior.
+Keyboard-open/reduced-height, very narrow zoom-equivalent layouts and landscape
+may scroll vertically for accessibility; content is never hidden to fake a fit.
+The one-screen claim applies to the measured normal portrait, keyboard-closed
+viewports, not every device, zoom level or OS keyboard overlay.
 
 WebKit/mobile emulation is not a physical iPhone/Android keyboard, VoiceOver or
 TalkBack audit. OS keyboard overlays, browser chrome and safe-area behavior still
@@ -170,7 +194,7 @@ POKER_TEST_URL="https://poker-spr-calculator.magalhoresh.com" \
 ```
 
 The test harness accepts only the canonical poker host and its exact Azure
-hostname, never an arbitrary site. The footer links to the public source;
+hostname, never an arbitrary site. The footer and mobile help dialog link to the public source;
 neither the calculator nor reading its code requires an account.
 The alignment/focus live-domain run passed 48 browser cases, with two unsupported
 WebKit cases explicitly skipped: clipboard permission grants and Windows

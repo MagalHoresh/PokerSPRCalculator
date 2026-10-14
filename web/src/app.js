@@ -7,7 +7,11 @@ const fields = ["pot", "stack", "facingBet"];
 const numbers = [...document.querySelectorAll("output.number")];
 const copies = [...document.querySelectorAll("[data-copy]")];
 const separator = new Intl.NumberFormat(navigator.language).formatToParts(1.1).find((part) => part.type === "decimal")?.value ?? ".";
-const state = { language: "en", theme: "system", pot: "", stack: "", facingBet: "" };
+const state = { language: "en", theme: "system", pot: "", stack: "", facingBet: "", tab: "postflop", submitted: { postflop: false, preflop: false } };
+const mobile = matchMedia("(max-width: 600px), (max-width: 960px) and (max-height: 600px)");
+const reference = document.querySelector(".reference");
+const referenceMarker = document.createComment("Desktop reference");
+reference.before(referenceMarker);
 const labels = { spr: "sprName" };
 const values = new Map();
 let feedbackTimer;
@@ -28,10 +32,11 @@ for (const streets of [2, 3]) {
 for (const kind of RAISES) labels[`raise-${kind.id}`] = `raiseLabel-${kind.id}`;
 for (const button of copies) button.innerHTML = copyIcon;
 
-function announce(message, error = false) {
+function announce(message, error = false, quiet = false) {
   clearTimeout(feedbackTimer);
   $("feedback").textContent = message;
   $("feedback").dataset.error = String(error);
+  $("feedback").classList.toggle("sr-only", quiet);
   feedbackTimer = setTimeout(() => { $("feedback").textContent = ""; }, error ? 6500 : 2600);
 }
 
@@ -57,7 +62,8 @@ function update() {
     const parsed = result.inputs[field];
     const active = document.activeElement === input;
     const typingZero = active && ["0", `0${separator}`].includes(input.value.trim());
-    const message = parsed.status === "Invalid" && !typingZero ? translate(parsed.key)
+    const required = state.submitted[field === "facingBet" ? "preflop" : "postflop"] && parsed.status === "Empty";
+    const message = required ? translate("requiredAmount") : parsed.status === "Invalid" && !typingZero ? translate(parsed.key)
       : parsed.status === "Incomplete" && !active ? translate("finishAmount") : "";
     const error = $(`${field}-error`);
     error.textContent = message;
@@ -78,6 +84,7 @@ function update() {
   $("geometric-status").textContent = result.geometricError ? errorText(result.geometricError)
     : translate(result.geometric ? result.geometric.twoStreet.fraction > 1 + 1e-12 ? "overPotNote" : "callRule" : "waitingForAmounts");
   $("geometric-status").classList.toggle("error", Boolean(result.geometricError));
+  $("geometric-status").dataset.mathError = String(Boolean(result.geometricError && !result.geometricError.field));
   $("preflop-status").textContent = result.preflopError ? errorText(result.preflopError) : translate("totalTargets");
   $("preflop-status").classList.toggle("error", Boolean(result.preflopError));
   for (const button of copies) {
@@ -95,14 +102,21 @@ function fitNumbers() {
   fitFrame = requestAnimationFrame(() => {
     for (const node of numbers) {
       node.style.removeProperty("font-size");
+      delete node.dataset.wrap;
       const available = node.clientWidth;
       if (!available || node.scrollWidth <= available) continue;
+      const size = parseFloat(getComputedStyle(node).fontSize);
+      if (mobile.matches && node.closest(".bet-step, .raise-target") && size * available / node.scrollWidth < 20) {
+        node.dataset.wrap = "true";
+        node.style.fontSize = "20px";
+        continue;
+      }
       let lower = 10;
-      let upper = parseFloat(getComputedStyle(node).fontSize);
+      let upper = size;
       while (upper - lower > 0.25) {
         const middle = (lower + upper) / 2;
         node.style.fontSize = `${middle}px`;
-        if (node.scrollWidth <= available) lower = middle;
+        if (node.scrollWidth <= node.clientWidth) lower = middle;
         else upper = middle;
       }
       node.style.fontSize = `${Math.floor(lower * 4) / 4}px`;
@@ -120,9 +134,14 @@ function localize() {
   document.querySelector(".language-switch").setAttribute("aria-label", translate("language"));
   $("theme").setAttribute("aria-label", translate("theme"));
   $("new-hand").title = translate("resetHelp");
+  $("new-hand").setAttribute("aria-label", translate("newHand"));
+  $("mobile-help").setAttribute("aria-label", translate("helpReference"));
+  document.querySelector(".mobile-tabs").setAttribute("aria-label", translate("calculators"));
+  document.querySelectorAll("[data-go]").forEach((button) => button.setAttribute("aria-label", `${translate("go")}: ${translate("finishEntry")}`));
   $("assumptions-close").setAttribute("aria-label", translate("close"));
   $("github").setAttribute("aria-label", translate("github"));
   $("github").title = translate("githubSource");
+  $("github-dialog").title = translate("githubSource");
   $("units-note").textContent = translate("units");
   fields.forEach((field, index) => {
     const input = $(field);
@@ -153,20 +172,22 @@ function renderReference() {
 }
 
 function focusField(field) {
+  if (mobile.matches) selectTab(field === "facingBet" ? "preflop" : "postflop");
   $(field).focus({ preventScroll: false });
   $(field).select();
 }
 
 function newHand() {
+  state.submitted = { postflop: false, preflop: false };
   for (const field of fields) {
     state[field] = "";
     $(field).value = "";
   }
   update();
-  if (matchMedia("(pointer: fine)").matches) focusField("pot");
+  if (!mobile.matches && matchMedia("(pointer: fine)").matches) focusField("pot");
   else {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    $("pot").scrollIntoView({ block: "center", behavior: "instant" });
+    if (!mobile.matches) $("pot").scrollIntoView({ block: "center", behavior: "instant" });
   }
   announce(translate("handCleared"));
 }
@@ -178,7 +199,8 @@ for (const field of fields) {
   $(field).addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.isComposing) return;
     event.preventDefault();
-    if (field !== "pot" && matchMedia("(pointer: coarse)").matches) $(field).blur();
+    if (field !== "pot" && mobile.matches) finishEntry(field === "facingBet" ? "preflop" : "postflop");
+    else if (field !== "pot" && matchMedia("(pointer: coarse)").matches) $(field).blur();
     else focusField(fields[(fields.indexOf(field) + 1) % fields.length]);
   });
 }
@@ -234,17 +256,76 @@ for (const button of copies) button.addEventListener("click", async () => {
 });
 
 const dialog = $("assumptions-dialog");
-$("assumptions-open").addEventListener("click", () => dialog.showModal());
+let dialogOpener = $("assumptions-open");
+for (const id of ["assumptions-open", "mobile-help"]) $(id).addEventListener("click", () => {
+  dialogOpener = $(id);
+  dialog.showModal();
+});
 $("assumptions-close").addEventListener("click", () => dialog.close());
-dialog.addEventListener("close", () => $("assumptions-open").focus({ preventScroll: true }));
+dialog.addEventListener("close", () => dialogOpener.focus({ preventScroll: true }));
 dialog.addEventListener("click", (event) => {
   if (event.target !== dialog) return;
   const bounds = dialog.getBoundingClientRect();
   if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
 });
+function selectTab(tab) {
+  state.tab = tab;
+  for (const kind of ["postflop", "preflop"]) {
+    const button = $(`tab-${kind}`);
+    button.setAttribute("aria-selected", String(kind === tab));
+    button.tabIndex = kind === tab ? 0 : -1;
+    const panel = $(kind === "postflop" ? "postflop-panel" : "preflop");
+    panel.hidden = mobile.matches && kind !== tab;
+    if (mobile.matches) panel.setAttribute("role", "tabpanel");
+    else panel.removeAttribute("role");
+    panel.setAttribute("aria-labelledby", mobile.matches ? `tab-${kind}` : `${kind}-heading`);
+  }
+  fitNumbers();
+}
+function mobileLayout() {
+  if (mobile.matches) $("dialog-reference").append(reference);
+  else referenceMarker.after(reference);
+  $("stack").enterKeyHint = mobile.matches ? "go" : "done";
+  $("facingBet").enterKeyHint = mobile.matches ? "go" : "done";
+  selectTab(state.tab);
+}
+for (const kind of ["postflop", "preflop"]) {
+  const button = $(`tab-${kind}`);
+  button.addEventListener("click", () => selectTab(kind));
+  button.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const tab = event.key === "Home" ? "postflop" : event.key === "End" ? "preflop" : kind === "postflop" ? "preflop" : "postflop";
+    selectTab(tab);
+    $(`tab-${tab}`).focus();
+  });
+}
+function finishEntry(kind) {
+  state.submitted[kind] = true;
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  update();
+  const required = kind === "postflop" ? ["pot", "stack"] : ["facingBet"];
+  const invalid = required.find((field) => $(field).getAttribute("aria-invalid") === "true");
+  if (invalid) {
+    const label = translate(invalid === "pot" ? "potLabel" : invalid === "stack" ? "stackLabel" : "facingBet");
+    announce(`${label}: ${$(`${invalid}-error`).textContent}`, true, true);
+  } else {
+    const status = $(kind === "postflop" ? "geometric-status" : "preflop-status");
+    announce(status.classList.contains("error") ? status.textContent : translate("amountsReady"), status.classList.contains("error"), true);
+  }
+}
+document.querySelectorAll("[data-go]").forEach((button) => button.addEventListener("click", () => finishEntry(button.dataset.go)));
+document.querySelector(".skip-link").addEventListener("click", (event) => {
+  if (!mobile.matches) return;
+  event.preventDefault();
+  selectTab("postflop");
+  $("pot").focus();
+});
+mobile.addEventListener("change", mobileLayout);
 new ResizeObserver(fitNumbers).observe($("calculator"));
 window.addEventListener("resize", fitNumbers);
 try {
+  mobileLayout();
   localize();
   updateThemeColor();
   $("startup").hidden = true;

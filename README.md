@@ -19,11 +19,16 @@ over HTTPS; arithmetic works without further network requests once loaded.
 The language resets to English on each page load. Theme/language choices are
 tab-local, and clearing a hand preserves those choices.
 
-On mobile, **current pot and effective stack appear first**, without an autofocus
-keyboard. The full paths follow, then the independent preflop calculator and
-reference. Mobile intentionally scrolls vertically; desktop keeps the main
-calculators together. Numbers and copied values use one decimal place, and the
-full-precision math matches the native applications.
+On mobile, the default **2e / 3e** tab shows pot, effective stack, SPR and both
+complete paths, with the bets side by side. The **3-bet / 4-bet** tab shows all
+four independent raise-to targets. Switching tabs preserves the hand. Both
+calculators fit the tested normal portrait viewports without page scrolling
+when the keyboard is closed; help, the SPR reference and GitHub are under **?**.
+**Go**, or Enter in the final input, deliberately finishes editing and dismisses
+the keyboard; calculations still update instantly while typing. No autofocus
+opens the keyboard. Desktop keeps all calculators together without tabs or Go.
+Numbers and copied values use one decimal place, and the full-precision math
+matches the native applications.
 
 ## Web development
 
@@ -48,7 +53,7 @@ allowlist in `web/dist`; native binaries, screenshots, tests, deployment-session
 files and repository history are not published.
 
 **Web controls:** Alt+1/2/3 focus and select inputs, Enter advances fields
-(mobile finishes after stack), Alt+N clears the hand, and copy icons explicitly
+(mobile finishes after stack or facing size), Alt+N clears the hand, and copy icons explicitly
 copy amounts with feedback. Browser-reserved Command/Ctrl shortcuts are not
 intercepted. Touch targets remain usable at 320px; device decimal keyboards and
 normal text editing are retained. Hebrew uses RTL labels/layout with LTR numbers
@@ -62,7 +67,7 @@ Free resource, update commands, and precise browser-validation limitations.
 
 ![Desktop Poker SPR Calculator with complete betting paths and independent raise targets.](docs/images/web-desktop.png)
 
-<img src="docs/images/web-mobile.png" width="390" alt="Mobile startup: current pot and effective stack are visible first, without opening the keyboard.">
+<img src="docs/images/web-mobile.png" width="390" alt="Mobile 2e/3e tab: pot, effective stack, SPR and both complete side-by-side betting paths on one screen.">
 
 ## Preserved native applications
 

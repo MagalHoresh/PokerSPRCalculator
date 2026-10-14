@@ -135,7 +135,7 @@ td { direction: ltr; unicode-bidi: isolate; }
 .feedback { position: fixed; bottom: max(16px,env(safe-area-inset-bottom)); inset-inline: 16px; margin-inline: auto; width: fit-content; max-width: calc(100% - 32px); font-size: 14px; line-height: 1.4; border-radius: 12px; background: var(--text); color: var(--surface); padding: 12px 18px; box-shadow: var(--shadow); z-index: 10; }
 .feedback:empty { display: none; }
 .feedback[data-error="true"] { border: 2px solid var(--error); }
-dialog { width: min(560px,calc(100vw - 24px)); max-height: min(800px,calc(100dvh - 32px)); padding: 24px; border: 1px solid var(--line); border-radius: 16px; color: var(--text); background: var(--surface); }
+dialog { width: min(560px,calc(100vw - 24px)); max-height: min(800px,calc(100dvh - 32px)); overflow: auto; overscroll-behavior: contain; padding: 24px; border: 1px solid var(--line); border-radius: 16px; color: var(--text); background: var(--surface); }
 dialog::backdrop { background: #081923aa; }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .dialog-heading h2 { font-size: 21px; }
@@ -147,6 +147,7 @@ dialog h3 { font-size: 16px; margin-top: 20px; }
 .skip-link:focus { top: 8px; }
 #startup { position: fixed; bottom: 16px; inset-inline: 16px; text-align: center; background: var(--surface); padding: 12px; color: var(--error); }
 .noscript { padding: 20px; background: var(--surface); color: var(--error); }
+.mobile-only { display: none; }
 @media (max-height: 830px) and (min-width: 1050px) {
   :root { --first-size: 60px; --later-size: 48px; --raise-size: 48px; --percent-size: 28px; }
   body { padding-block: 12px; }
@@ -176,50 +177,109 @@ dialog h3 { font-size: 16px; margin-top: 20px; }
   .app-footer { align-items: flex-start; flex-direction: column; gap: 0; }
   .app-footer nav { align-self: flex-end; }
 }
-@media (max-width: 600px) {
-  body { padding: max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); }
-  .app-header { flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-  .brand { font-size: 18px; }
+@media (max-width: 600px), (max-width: 960px) and (max-height: 600px) {
+  body { padding: max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); }
+  .mobile-only { display: block; }
+  .app-header { gap: 4px; margin-bottom: 8px; min-height: 46px; }
+  .brand { gap: 4px; }
+  .brand > span { font-size: 0; }
+  .brand strong { font-size: 16px; }
   .brand img { width: 28px; height: 28px; }
-  .toolbar { width: 100%; justify-content: space-between; gap: 6px; }
-  .language-switch { padding: 2px; }
+  .toolbar { gap: 4px; }
+  .language-switch { padding: 1px; }
   .language-switch button { height: 44px; }
-  .reset-button { min-height: 44px; padding-inline: 9px; }
-  .theme-control { padding-inline-start: 7px; }
-  .theme-control select { height: 44px; font-size: 13px; max-width: 100px; }
-  .theme-control svg { width: 16px; }
-  .panel { padding: 14px 12px; border-radius: 14px; }
-  .section-heading > span { font-size: 11px; }
-  .primary-inputs { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
-  .amount-field label { font-size: 14px; min-height: 34px; align-items: center; }
+  .reset-button { width: 44px; min-height: 44px; padding: 0; justify-content: center; }
+  .reset-button span { display: none; }
+  .icon-button { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; }
+  .theme-control { width: 46px; padding: 0; }
+  .theme-control select { width: 44px; height: 44px; padding: 0; color: transparent; font-size: 16px; }
+  .theme-control option { color: var(--text); background: var(--surface); }
+  .theme-control::after { display: none; }
+  .theme-control svg { position: absolute; inset: 12px; pointer-events: none; }
+  .mobile-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--line); border-radius: 11px; padding: 3px; margin: 0 auto 8px; max-width: 1440px; }
+  .mobile-tabs button { min-height: 44px; border: 0; border-radius: 8px; background: transparent; font-size: 14px; font-weight: 700; color: var(--muted); }
+  .mobile-tabs [aria-selected="true"] { background: var(--surface); color: var(--teal); box-shadow: var(--shadow); }
+  .panel { padding: 8px; border-radius: 14px; }
+  .postflop, .preflop { display: flex; gap: 8px; }
+  .panel > .section-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .primary-inputs { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 6px 8px; }
+  .amount-field label { font-size: 13px; min-height: 16px; align-items: center; }
   kbd { display: none; }
-  input { height: 54px; font-size: 26px; padding-inline: 9px; }
-  .input-hint,.field-error { font-size: 11px; min-height: 30px; }
-  .spr-display { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; border-top: 1px solid var(--line); padding-top: 8px; gap: 10px; }
-  .spr-display .number { --size: 30px; min-height: 34px; }
-  .spr-display .input-hint { min-height: 0; }
-  .street-plans { grid-template-columns: minmax(0,1fr); gap: 12px; }
-  .street-plan { min-height: 0; padding: 14px; gap: 10px; }
-  .plan-top .percentage { flex-direction: column; align-items: flex-end; gap: 2px; }
-  .bet-path { grid-template-columns: minmax(0,1fr); gap: 28px; }
-  .bet-step { padding: 0 12px 10px; }
-  .bet-step + .bet-step::before, :root[dir="rtl"] .bet-step + .bet-step::before { content: "↓"; inset-inline-start: calc(50% - 12px); top: -28px; height: 28px; line-height: 28px; transform: none; }
-  .bet-step .number { --first-size: 64px; --size: 48px; min-height: 58px; }
-  .bet-now .number { --size: 64px; min-height: 72px; }
+  input { height: 44px; font-size: 25px; padding-inline: 9px; }
+  .panel .input-hint { display: none; }
+  .field-error { font-size: 11px; min-height: 0; }
+  .spr-display { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding-top: 4px; }
+  .spr-display .number { --size: 28px; min-height: 36px; }
+  .mobile-go { min-width: 64px; min-height: 44px; border: 0; border-radius: 9px; background: var(--teal); color: var(--surface); font-size: 14px; font-weight: 700; padding: 8px 12px; }
+  .street-plans { grid-template-columns: minmax(0,1fr); gap: 6px; flex: none; }
+  .street-plan { padding: 6px; gap: 4px; }
+  .plan-top { gap: 4px; }
+  .plan-top > div { gap: 5px; }
+  .plan-top h2 { font-size: 18px; }
+  .plan-top span { font-size: 10px; }
+  .percentage .number { --size: 22px; }
+  .bet-path { grid-template-columns: repeat(var(--steps),minmax(0,1fr)); gap: 10px; }
+  .bet-step { padding: 6px 5px 4px; min-height: 74px; }
+  .bet-step + .bet-step::before { inset-inline-start: -11px; width: 10px; font-size: 13px; }
+  .bet-step .number { --size: clamp(32px,9vw,40px); min-height: 34px; }
+  .two .bet-step .number { --size: clamp(34px,10vw,44px); }
+  .three .bet-path { gap: 8px; }
+  .three .bet-step { padding-inline: 3px; }
+  .three .bet-step + .bet-step::before { inset-inline-start: -9px; width: 8px; font-size: 12px; }
+  .bet-label { min-height: 18px; }
+  .bet-label strong { font-size: 10px; line-height: 1.2; padding-inline-end: 12px; }
+  .bet-now .bet-label strong { letter-spacing: 0; }
+  .bet-step .copy { position: absolute; inset: 0; width: 100%; min-width: 0; height: 100%; align-items: flex-start; justify-content: flex-end; padding: 6px 4px; }
+  .bet-step .copy svg { width: 12px; height: 12px; }
+  .bet-step .copy:not(:disabled):hover { background: transparent; }
   .copy { width: 44px; min-width: 44px; height: 44px; }
-  .bet-label { min-height: 44px; }
-  .step-context { font-size: 12px; }
-  .over-pot { position: static; font-size: 12px; }
-  .preflop { display: flex; }
-  .raise-group + .raise-group { border-inline-start: 0; padding-inline-start: 0; border-top: 1px solid var(--line); padding-top: 14px; }
-  .raise-target .number { --raise-size: 50px; }
-  .reference { display: block; padding: 18px 0 10px; }
+  .step-context { font-size: 10px; line-height: 1.2; margin-top: 1px; }
+  .call-context, .step-context[data-t="afterCalls1"] { display: none; }
+  .over-pot { font-size: 10px; }
+  .postflop .calculation-note { display: none; }
+  .postflop .calculation-note:has([data-math-error="true"]) { display: block; }
+  .preflop > .amount-field { max-width: none; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 5px 8px; }
+  .preflop > .amount-field label, .preflop > .amount-field .field-error { grid-column: 1 / -1; }
+  .preflop .calculation-note { min-height: 0; }
+  .raise-group { flex: none; }
+  .raise-group + .raise-group { border-inline-start: 0; padding-inline-start: 0; border-top: 1px solid var(--line); padding-top: 8px; }
+  .raise-group h3 { margin-bottom: 4px; }
+  .raise-target { position: relative; padding: 6px; border-radius: 10px; background: var(--canvas); }
+  .raise-target .number { --raise-size: 38px; }
+  .raise-meta .copy { position: absolute; inset: 0; width: 100%; height: 100%; align-items: flex-start; justify-content: flex-end; padding: 6px; }
+  .raise-meta .copy svg { width: 12px; height: 12px; }
+  .raise-meta .copy:not(:disabled):hover { background: transparent; }
+  .number[data-wrap="true"] { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
+  .reference { display: block; padding: 8px 0; }
   .reference > div { display: flex; justify-content: space-between; margin-bottom: 9px; padding-inline: 4px; }
   th,td { font-size: 10px; padding-block: 6px; letter-spacing: -.2px; }
   th:first-child { width: 24px; }
-  .app-footer { padding-inline: 4px; font-size: 11px; }
-  .privacy-note { text-align: start; padding-inline: 4px; }
+  .app-footer, .privacy-note { display: none; }
   dialog { padding: 16px; }
+  dialog .reference p { margin: 0; font-size: 11px; }
+  #github-dialog { display: inline-flex; align-items: center; min-height: 44px; }
+}
+@media (max-height: 600px) and (max-width: 960px) {
+  body { padding-block: max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-bottom)); }
+  .app-header { margin-bottom: 4px; }
+  .mobile-tabs { padding: 2px; margin-bottom: 4px; }
+  .panel { padding: 6px; }
+  .postflop, .preflop { gap: 5px; }
+  .primary-inputs { row-gap: 4px; }
+  .street-plans { gap: 4px; }
+  .street-plan { padding: 3px 4px; }
+  .bet-step { padding-block: 4px 3px; min-height: 68px; }
+  .bet-label { min-height: 16px; }
+  .bet-step .number { min-height: 32px; }
+  .raise-group + .raise-group { padding-top: 6px; }
+}
+@media (max-width: 300px) {
+  .app-header, .toolbar { flex-wrap: wrap; }
+  .toolbar { width: 100%; justify-content: flex-end; }
+  .bet-path { grid-template-columns: 1fr; gap: 18px; }
+  .bet-step + .bet-step::before, :root[dir="rtl"] .bet-step + .bet-step::before { content: "↓"; inset-inline-start: calc(50% - 5px); top: -17px; transform: none; }
+  .reference { overflow-x: auto; }
+  .reference table { min-width: 260px; }
 }
 @media (prefers-contrast: more) {
   :root { --line: #647b78; --muted: #2d444b; }
@@ -232,7 +292,13 @@ dialog h3 { font-size: 16px; margin-top: 20px; }
 @media (forced-colors: active) {
   :root { --canvas: Canvas; --surface: Canvas; --text: CanvasText; --muted: CanvasText; --line: CanvasText; --teal: LinkText; --blue: LinkText; --error: CanvasText; --soft-teal: Canvas; --soft-blue: Canvas; --focus: Highlight; }
   .language-switch button[aria-pressed="true"] { background: Highlight; color: HighlightText; }
-  input:focus { border-color: Highlight; }
+  input:focus, input[aria-invalid="true"]:focus { border-color: Highlight; }
+  .mobile-tabs [aria-selected="true"], .mobile-go { background: Highlight; color: HighlightText; }
+  .theme-control select { color: CanvasText; }
+  @media (max-width: 600px), (max-width: 960px) and (max-height: 600px) {
+    .theme-control select { font-size: 12px; }
+  }
+  .theme-control svg { display: none; }
   .number.empty { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {

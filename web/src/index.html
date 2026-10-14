@@ -41,11 +41,18 @@
         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8V3m0 5h5M4 8a8 8 0 1 1-1 8"/></svg>
         <span data-t="newHand">New hand</span>
       </button>
+      <button type="button" id="mobile-help" class="mobile-only icon-button" aria-label="Help and SPR reference">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8a2 2 0 0 1 4 0c0 2-2 2-2 4m0 4v.1"/></svg>
+      </button>
     </div>
   </header>
+  <nav class="mobile-tabs mobile-only" role="tablist" aria-label="Calculators">
+    <button id="tab-postflop" type="button" role="tab" aria-controls="postflop-panel" aria-selected="true" tabindex="0" dir="ltr">2e / 3e</button>
+    <button id="tab-preflop" type="button" role="tab" aria-controls="preflop" aria-selected="false" tabindex="-1" dir="ltr">3-bet / 4-bet</button>
+  </nav>
   <main id="calculator">
     <div class="calculator-grid">
-      <section class="panel postflop" aria-labelledby="postflop-heading">
+      <section id="postflop-panel" class="panel postflop" aria-labelledby="postflop-heading">
         <div class="section-heading"><h1 id="postflop-heading" data-t="primaryTitle">Postflop</h1><span data-t="pathToAllIn">Your path to all-in</span></div>
         <div class="primary-inputs">
           <div class="amount-field">
@@ -64,6 +71,7 @@
             <span class="eyebrow">SPR</span>
             <output id="spr" class="number" dir="ltr" aria-label="Stack to pot ratio">—</output>
             <span class="input-hint" data-t="sprFormula">Stack ÷ pot</span>
+            <button type="button" class="mobile-only mobile-go" data-go="postflop" data-t="go">Go</button>
           </div>
         </div>
         <div class="street-plans">
@@ -71,7 +79,7 @@
             <div class="plan-top"><div><h2 id="two-heading" dir="ltr">2e</h2><span data-t="streets2">2 streets</span></div><div class="percentage"><output id="percent-2" class="number" dir="ltr">—</output><span data-t="perStreet">of pot each street</span></div></div>
             <ol class="bet-path">
               <li class="bet-step bet-now"><div class="bet-label"><strong data-t="betNow">BET NOW</strong><button class="copy" type="button" data-copy="bet-2-1" disabled></button></div><output id="bet-2-1" class="number" dir="ltr">—</output><span class="step-context" data-t="turn">Turn</span></li>
-              <li class="bet-step"><div class="bet-label"><strong data-t="river">River</strong><button class="copy" type="button" data-copy="bet-2-2" disabled></button></div><output id="bet-2-2" class="number" dir="ltr">—</output><span class="step-context"><strong data-t="allIn">All-in</strong> · <span data-t="afterCalls1">After 1 call</span></span></li>
+              <li class="bet-step"><div class="bet-label"><strong data-t="river">River</strong><button class="copy" type="button" data-copy="bet-2-2" disabled></button></div><output id="bet-2-2" class="number" dir="ltr">—</output><span class="step-context"><strong data-t="allIn">All-in</strong><span class="call-context"> · <span data-t="afterCalls1">After 1 call</span></span></span></li>
             </ol>
             <span class="over-pot" id="over-2" hidden data-t="overPotShort">Over pot</span>
           </article>
@@ -80,7 +88,7 @@
             <ol class="bet-path">
               <li class="bet-step bet-now"><div class="bet-label"><strong data-t="betNow">BET NOW</strong><button class="copy" type="button" data-copy="bet-3-1" disabled></button></div><output id="bet-3-1" class="number" dir="ltr">—</output><span class="step-context" data-t="flop">Flop</span></li>
               <li class="bet-step"><div class="bet-label"><strong data-t="turn">Turn</strong><button class="copy" type="button" data-copy="bet-3-2" disabled></button></div><output id="bet-3-2" class="number" dir="ltr">—</output><span class="step-context" data-t="afterCalls1">After 1 call</span></li>
-              <li class="bet-step"><div class="bet-label"><strong data-t="river">River</strong><button class="copy" type="button" data-copy="bet-3-3" disabled></button></div><output id="bet-3-3" class="number" dir="ltr">—</output><span class="step-context"><strong data-t="allIn">All-in</strong> · <span data-t="afterCalls2">After 2 calls</span></span></li>
+              <li class="bet-step"><div class="bet-label"><strong data-t="river">River</strong><button class="copy" type="button" data-copy="bet-3-3" disabled></button></div><output id="bet-3-3" class="number" dir="ltr">—</output><span class="step-context"><strong data-t="allIn">All-in</strong><span class="call-context"> · <span data-t="afterCalls2">After 2 calls</span></span></span></li>
             </ol>
             <span class="over-pot" id="over-3" hidden data-t="overPotShort">Over pot</span>
           </article>
@@ -92,6 +100,7 @@
         <div class="amount-field">
           <label for="facingBet"><span data-t="facingBet">Facing bet / raise</span><kbd>Alt+3</kbd></label>
           <input id="facingBet" type="text" inputmode="decimal" enterkeyhint="done" dir="ltr" placeholder="0.0" autocomplete="off" spellcheck="false" aria-describedby="facingBet-hint facingBet-error" maxlength="512">
+          <button type="button" class="mobile-only mobile-go" data-go="preflop" data-t="go">Go</button>
           <span id="facingBet-hint" class="input-hint" data-t="facingBetHint">Their current total size</span>
           <span id="facingBet-error" class="field-error" hidden></span>
         </div>
@@ -119,9 +128,12 @@
   <div id="feedback" class="feedback" role="status" aria-live="polite" aria-atomic="true"></div>
   <dialog id="assumptions-dialog" aria-labelledby="assumptions-title">
     <div class="dialog-heading"><h2 id="assumptions-title" data-t="assumptionsTitle">Sizing, not a recommendation</h2><button type="button" id="assumptions-close" aria-label="Close">×</button></div>
+    <p class="mobile-only" data-t="mobileEntryHelp"></p>
     <p data-t="effectiveStackExplanation"></p><p data-t="geometricExplanation"></p><p data-t="planExplanation"></p><p data-t="roundingExplanation"></p><p data-t="inputRules"></p>
+    <div id="dialog-reference"></div>
     <h3 data-t="browserTitle">Keyboard &amp; browser</h3><p data-t="shortcutHelp"></p><p data-t="noPin"></p><p data-t="themeNote"></p>
     <p data-t="localHelp"></p><p data-t="githubSource"></p>
+    <a id="github-dialog" class="mobile-only" href="https://github.com/MagalHoresh/PokerSPRCalculator" target="_blank" rel="noopener noreferrer" data-t="github">View project on GitHub</a>
   </dialog>
   <noscript><p class="noscript">Enable JavaScript to calculate. All calculations run on your device.</p></noscript>
   <p id="startup" role="status">Starting the calculator…</p>

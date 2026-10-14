@@ -27,6 +27,10 @@ const web = {
     "betCopy2-1": "2e bet now on the turn", "betCopy2-2": "2e river all-in",
     "betCopy3-1": "3e bet now on the flop", "betCopy3-2": "3e turn bet", "betCopy3-3": "3e river all-in",
     browserTitle: "Keyboard & browser", close: "Close", privacy: "No accounts, tracking or game integration.",
+    calculators: "Calculators", helpReference: "Help and SPR reference",
+    go: "Go", finishEntry: "Finish entry and close the keyboard",
+    requiredAmount: "Enter a positive amount.", amountsReady: "Amounts ready.",
+    mobileEntryHelp: "Calculations update while you type. Go finishes entry and closes the keyboard; Enter advances from pot to stack, then finishes. Changing calculator tabs keeps your inputs.",
   },
   he: {
     pageTitle: "מחשבון SPR לפוקר",
@@ -54,6 +58,10 @@ const web = {
     "betCopy2-1": "הימור כעת בטרן בתכנון ⁦2e⁩", "betCopy2-2": "אול-אין בריבר בתכנון ⁦2e⁩",
     "betCopy3-1": "הימור כעת בפלופ בתכנון ⁦3e⁩", "betCopy3-2": "הימור בטרן בתכנון ⁦3e⁩", "betCopy3-3": "אול-אין בריבר בתכנון ⁦3e⁩",
     browserTitle: "מקלדת ודפדפן", close: "סגירה", privacy: "ללא חשבונות, מעקב או חיבור למשחק.",
+    calculators: "מחשבונים", helpReference: "עזרה וטבלת SPR",
+    go: "סיום", finishEntry: "סיום ההזנה וסגירת המקלדת",
+    requiredAmount: "יש להזין סכום חיובי.", amountsReady: "הסכומים מוכנים.",
+    mobileEntryHelp: "החישוב מתעדכן בזמן ההקלדה. סיום מסיים את ההזנה וסוגר את המקלדת. ⁦Enter⁩ מעביר מהקופה לסטאק, ואז מסיים. החלפת מחשבון שומרת את הקלט.",
   },
 };
 

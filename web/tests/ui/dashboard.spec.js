@@ -8,9 +8,18 @@ async function start(page) {
   expect(errors).toEqual([]);
 }
 async function hand(page, pot = "100", stack = "241.6", facing = "3") {
+  await showCalculator(page, "postflop");
   await page.locator("#pot").fill(pot);
   await page.locator("#stack").fill(stack);
+  await showCalculator(page, "preflop");
   await page.locator("#facingBet").fill(facing);
+  await showCalculator(page, "postflop");
+}
+async function showCalculator(page, kind) {
+  if (await page.locator(".mobile-tabs").isVisible()) await page.locator(`#tab-${kind}`).click();
+}
+async function showField(page, field) {
+  await showCalculator(page, field === "facingBet" ? "preflop" : "postflop");
 }
 async function noOverflow(page) {
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -25,7 +34,7 @@ async function noOverflow(page) {
 
 async function leadingAmounts(page, language) {
   await noOverflow(page);
-  const metrics = await page.locator(".bet-step .number, .raise-target .number, #spr").evaluateAll((nodes, language) => nodes.map((node) => {
+  const metrics = await page.locator(".bet-step .number, .raise-target .number, #spr").evaluateAll((nodes, language) => nodes.filter((node) => node.getClientRects().length).map((node) => {
     const range = document.createRange();
     range.selectNodeContents(node);
     const text = range.getBoundingClientRect();
@@ -49,7 +58,8 @@ async function leadingAmounts(page, language) {
       font: parseFloat(style.fontSize),
     };
   }), language);
-  expect(metrics).toHaveLength(10);
+  expect(metrics).toHaveLength(await page.locator(".mobile-tabs").isVisible()
+    ? await page.locator("#preflop").isVisible() ? 4 : 6 : 10);
   for (const metric of metrics) {
     const description = `${language} ${metric.id}: ${metric.text}`;
     expect(metric.alignment, description).toBe(language === "he" ? "right" : "left");
@@ -102,7 +112,7 @@ for (const [width, height] of [[320, 640], [360, 740], [390, 844], [430, 932], [
     }
     await noOverflow(page);
     if (width === 1440) await page.screenshot({ path: info.outputPath("desktop-light.png"), fullPage: true });
-    expect(parseFloat(await page.locator("#bet-3-1").evaluate((node) => getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(width < 600 ? 56 : 60);
+    expect(parseFloat(await page.locator("#bet-3-1").evaluate((node) => getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(await page.locator(".mobile-tabs").isVisible() ? 27 : 60);
     if (width >= 1280) {
       for (const id of ["bet-3-3", "raise-fourBetOOP", "reference-heading"]) {
         const rect = await page.locator(`#${id}`).boundingBox();
@@ -157,6 +167,7 @@ test("switch language while editing every field preserves selection and immediat
   await start(page);
   await hand(page);
   for (const field of ["pot", "stack", "facingBet"]) {
+    await showField(page, field);
     await page.locator(`#${field}`).focus();
     await page.locator(`#${field}`).evaluate((input) => input.setSelectionRange(1, 1));
     const original = await page.locator(`#${field}`).inputValue();
@@ -270,18 +281,13 @@ test("chronological street paths stay visible, stable and correctly mirrored", a
         expect(step.direction).toBe("ltr");
         expect(step.animation).toBe("none");
         expect(step.transition).toBe("0s");
-        expect(step.font).toBeGreaterThanOrEqual(48);
+        expect(step.font).toBeGreaterThanOrEqual(width <= 600 ? 27 : 48);
       }
       for (let i = 1; i < steps.length; i++) {
-        if (width > 600) {
-          expect(steps[i].y).toBe(steps[0].y);
-          if (language === "en") expect(steps[i].x).toBeGreaterThan(steps[i - 1].x + steps[i - 1].width);
-          else expect(steps[i].x + steps[i].width).toBeLessThan(steps[i - 1].x);
-          expect(steps[i].arrow).toBe(language === "en" ? '"→"' : '"←"');
-        } else {
-          expect(steps[i].y).toBeGreaterThan(steps[i - 1].y + steps[i - 1].height);
-          expect(steps[i].arrow).toBe('"↓"');
-        }
+        expect(steps[i].y).toBe(steps[0].y);
+        if (language === "en") expect(steps[i].x).toBeGreaterThan(steps[i - 1].x + steps[i - 1].width);
+        else expect(steps[i].x + steps[i].width).toBeLessThan(steps[i - 1].x);
+        expect(steps[i].arrow).toBe(language === "en" ? '"→"' : '"←"');
       }
       await noOverflow(page);
       const before = await page.locator("#bet-3-3").boundingBox();
@@ -308,6 +314,9 @@ for (const [width, height] of [[320, 640], [390, 844], [1280, 800], [1440, 900]]
       for (const language of ["he", "en"]) {
         await page.locator("#lang-" + language).click();
         await leadingAmounts(page, language);
+        await showCalculator(page, "preflop");
+        await leadingAmounts(page, language);
+        await showCalculator(page, "postflop");
       }
       if (pot === "16") {
         for (const [id, value] of [["bet-2-1", "19.9"], ["bet-2-2", "69.1"], ["bet-3-1", "10.4"], ["bet-3-2", "23.8"], ["bet-3-3", "54.8"]]) {
@@ -320,6 +329,7 @@ for (const [width, height] of [[320, 640], [390, 844], [1280, 800], [1440, 900]]
     }
     await hand(page);
     for (const field of ["pot", "stack", "facingBet"]) {
+      await showField(page, field);
       const input = page.locator(`#${field}`);
       await input.focus();
       await input.evaluate((node) => node.setSelectionRange(1, 1));
@@ -348,6 +358,7 @@ for (const [width, height] of [[390, 844], [1280, 800]]) {
     for (const theme of ["light", "dark"]) {
       await page.locator("#theme").selectOption(theme);
       for (const field of ["pot", "stack", "facingBet"]) {
+        await showField(page, field);
         const input = page.locator(`#${field}`);
         for (const method of ["pointer", "keyboard"]) {
           if (method === "pointer") await input.click();
@@ -378,6 +389,7 @@ for (const [width, height] of [[390, 844], [1280, 800]]) {
           }
         }
       }
+      await showCalculator(page, "postflop");
       await page.locator("#stack").fill("oops");
       await expect(page.locator("#stack")).toHaveAttribute("aria-invalid", "true");
       await expect(page.locator("#stack-error")).toBeVisible();
@@ -416,6 +428,8 @@ test("amount focus honors the system highlight in forced colors", async ({ page,
   await page.locator("#pot").fill("oops");
   await expect(page.locator("#pot-error")).toBeVisible();
   await expect(page.locator("#pot")).toBeFocused();
+  expect(await page.locator("#pot").evaluate((node) => getComputedStyle(node).borderColor)).toBe(focused.highlight);
+  expect(await page.locator("#pot").evaluate((node) => getComputedStyle(node).outlineStyle)).toBe("none");
 });
 
 test("viewport/keyboard-height changes and 200% equivalent layout without overflow", async ({ page }, info) => {
