@@ -1,0 +1,19 @@
+{
+  "globalHeaders": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), clipboard-write=(self)",
+    "Strict-Transport-Security": "max-age=31536000",
+    "Cache-Control": "no-cache"
+  },
+  "routes": [
+    { "route": "/.auth/*", "statusCode": 404 },
+    { "route": "/api/*", "statusCode": 404 }
+  ],
+  "mimeTypes": {
+    ".js": "text/javascript",
+    ".svg": "image/svg+xml"
+  }
+}

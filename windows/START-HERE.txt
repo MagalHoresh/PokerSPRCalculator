@@ -1,0 +1,33 @@
+PokerCalculator for Windows
+
+1. In File Explorer, right-click the ZIP and choose Extract All.
+2. Open the extracted folder and double-click PokerCalculator.exe.
+
+No installer, administrator privileges, Python, or .NET installation is needed.
+Keep the extracted folder intact. The app works completely offline.
+
+This build targets Windows 11 and Windows 10 version 22H2, x64 (Intel/AMD).
+Windows on ARM can use x64 emulation; an optional native ARM64 build is available
+from the build script but needs its own device verification.
+
+The app is unsigned. Windows may show an unknown-publisher/SmartScreen warning.
+Only run a copy obtained from someone you trust. Do not disable Windows security
+protections. A managed workplace computer may block unsigned apps.
+
+Same calculators as the Mac version:
+- Live SPR and complete 2e/3e bet sequences, ending at the effective stack.
+- All four fixed preflop raise-to targets (total sizes, not additional chips).
+- At most one decimal place; full-precision internal arithmetic.
+- EN / Hebrew toggle; English is the launch default; Hebrew text is RTL.
+- Ctrl+1 / Ctrl+2 / Ctrl+3 select the input fields.
+- Tab / Shift+Tab / Enter navigate inputs.
+- Ctrl+N clears the hand. Ctrl+Shift+P toggles Keep on top.
+- F1 opens the calculation assumptions.
+- Explicit copy buttons; no auto-copy or automatic interaction with any game.
+
+Use the same units for pot and effective stack. The effective stack is the
+smaller remaining stack. Geometric plans assume one matching caller each
+street and no intervening raises, folds, or rake. Arithmetic, not poker advice.
+
+The app follows Windows light/dark and high-contrast preferences. It stores
+neither hand data nor language preferences and makes no network requests.

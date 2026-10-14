@@ -1,0 +1,65 @@
+import native from "./native-copy.js";
+
+const web = {
+  en: {
+    pageTitle: "Poker SPR Calculator",
+    tagline: "Your numbers. Your next bet.",
+    theme: "Appearance", system: "System", light: "Light", dark: "Dark",
+    language: "Language", newHand: "New hand", resetHelp: "Clear the hand. Alt+N.",
+    potLabel: "Current pot", stackLabel: "Effective stack",
+    primaryTitle: "Postflop", startHere: "Start with the pot and smaller remaining stack.",
+    now: "Now", next: "After a call", local: "Private calculations",
+    localHelp: "Your hand stays in this tab. Nothing you enter is stored or sent.",
+    github: "View project on GitHub", githubSource: "Public source code; no sign-in is required.",
+    shortcutHelp: "Alt+1 / 2 / 3: select an input · Enter: next field · Alt+N: new hand",
+    keyFocus: "{label}. Alt+{key} selects this input.",
+    unavailable: "Enter valid inputs to calculate", copyManual: "Copy was blocked. Select the amount and use your device's Copy action.",
+    noPin: "Web browsers cannot keep this page above other apps. Keep-on-top is available in the native apps.",
+    themeNote: "System follows your device. Theme and language choices apply to this tab only.",
+    noScript: "Enable JavaScript to calculate. The calculator runs entirely on your device.",
+    loading: "Starting the calculator…", failed: "The calculator could not start. Refresh the page to try again.",
+    units: "Same units: chips, BB or currency. Decimal: {separator} · No thousands separators.",
+    preflopJump: "Preflop targets", referenceJump: "SPR reference", mainJump: "Skip to pot and stack",
+    referenceCaption: "Derived percentages of pot per street", inputsReady: "Calculator ready.",
+    overPotShort: "Over pot", perStreet: "of pot each street", rounded: "Rounded to one decimal. Final bet = remaining effective stack.",
+    callRule: "One matching caller each street. Use only the streets remaining.",
+    flop: "Flop", turn: "Turn", river: "River",
+    "betCopy2-1": "2e bet now on the turn", "betCopy2-2": "2e river all-in",
+    "betCopy3-1": "3e bet now on the flop", "betCopy3-2": "3e turn bet", "betCopy3-3": "3e river all-in",
+    browserTitle: "Keyboard & browser", close: "Close", privacy: "No accounts, tracking or game integration.",
+  },
+  he: {
+    pageTitle: "מחשבון SPR לפוקר",
+    tagline: "המספרים שלך. ההימור הבא.",
+    theme: "מראה", system: "מערכת", light: "בהיר", dark: "כהה",
+    language: "שפה", newHand: "יד חדשה", resetHelp: "ניקוי היד. ⁦Alt+N⁩.",
+    potLabel: "הקופה הנוכחית", stackLabel: "סטאק אפקטיבי",
+    primaryTitle: "פוסט-פלופ", startHere: "מתחילים מהקופה ומהסטאק הקטן שנותר.",
+    now: "כעת", next: "אחרי השוואה", local: "חישוב פרטי",
+    localHelp: "היד נשארת בלשונית הזו. שום קלט אינו נשמר או נשלח.",
+    github: "הפרויקט ב-GitHub", githubSource: "קוד המקור גלוי לציבור, ללא צורך בהתחברות.",
+    shortcutHelp: "⁦Alt+1 / 2 / 3⁩: בחירת שדה · ⁦Enter⁩: השדה הבא · ⁦Alt+N⁩: יד חדשה",
+    keyFocus: "{label}. ⁦Alt+{key}⁩ לבחירת השדה.",
+    unavailable: "יש להזין נתונים תקינים לחישוב", copyManual: "ההעתקה נחסמה. יש לבחור את הסכום ולהשתמש בפעולת ההעתקה במכשיר.",
+    noPin: "דפדפן אינו יכול להצמיד את העמוד מעל אפליקציות אחרות. האפשרות זמינה באפליקציות המקוריות.",
+    themeNote: "מצב מערכת עוקב אחרי המכשיר. בחירת המראה והשפה חלה על הלשונית הזו בלבד.",
+    noScript: "יש להפעיל JavaScript לחישוב. המחשבון פועל במכשיר בלבד.",
+    loading: "המחשבון עולה…", failed: "המחשבון לא עלה. יש לרענן את העמוד ולנסות שוב.",
+    units: "אותן יחידות: צ׳יפים, בליינדים גדולים או כסף. מפריד עשרוני: ⁦{separator}⁩ · בלי מפריד אלפים.",
+    preflopJump: "יעדי פרה-פלופ", referenceJump: "טבלת SPR", mainJump: "דילוג לקופה ולסטאק",
+    referenceCaption: "אחוזים מחושבים מהקופה לכל סבב", inputsReady: "המחשבון מוכן.",
+    overPotShort: "מעל גודל קופה", perStreet: "מהקופה בכל סבב", rounded: "עיגול לספרה אחת. ההימור האחרון = הסטאק האפקטיבי שנותר.",
+    callRule: "יריב אחד משווה בכל סבב. יש לבחור לפי הסבבים שנותרו.",
+    flop: "פלופ", turn: "טרן", river: "ריבר",
+    "betCopy2-1": "הימור כעת בטרן בתכנון ⁦2e⁩", "betCopy2-2": "אול-אין בריבר בתכנון ⁦2e⁩",
+    "betCopy3-1": "הימור כעת בפלופ בתכנון ⁦3e⁩", "betCopy3-2": "הימור בטרן בתכנון ⁦3e⁩", "betCopy3-3": "אול-אין בריבר בתכנון ⁦3e⁩",
+    browserTitle: "מקלדת ודפדפן", close: "סגירה", privacy: "ללא חשבונות, מעקב או חיבור למשחק.",
+  },
+};
+
+export function t(language, key, values = {}) {
+  const text = web[language]?.[key] ?? native[language]?.[key];
+  if (text === undefined) throw new Error(`Missing ${language} translation: ${key}`);
+  return text.replace(/\{([A-Za-z]+)\}/gu, (token, name) => values[name] ?? token);
+}
+export const languages = Object.freeze(["en", "he"]);

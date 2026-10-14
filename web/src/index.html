@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f2f5f4">
+  <meta name="description" content="Private, instant poker arithmetic: live SPR, full two- and three-street paths to all-in, and preflop raise targets. English and Hebrew.">
+  <meta property="og:title" content="Poker SPR Calculator">
+  <meta property="og:description" content="The full path to all-in, at a glance. A private, client-only poker arithmetic calculator for desktop and mobile.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://poker-spr-calculator.magalhoresh.com/">
+  <meta property="og:image" content="https://poker-spr-calculator.magalhoresh.com/icon.svg">
+  <link rel="canonical" href="https://poker-spr-calculator.magalhoresh.com/">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Poker SPR Calculator</title>
+</head>
+<body>
+  <a class="skip-link" href="#pot" data-t="mainJump">Skip to pot and stack</a>
+  <header class="app-header">
+    <a class="brand" href="./" aria-label="Poker SPR Calculator">
+      <img src="./icon.svg" width="34" height="34" alt="">
+      <span>Poker <strong>SPR</strong> Calculator</span>
+    </a>
+    <div class="toolbar">
+      <div class="language-switch" role="group" aria-label="Language">
+        <button type="button" id="lang-en" lang="en" aria-label="English" aria-pressed="true">EN</button>
+        <button type="button" id="lang-he" lang="he" aria-label="עברית" aria-pressed="false">עב</button>
+      </div>
+      <label class="theme-control">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9V3Z"/><path d="M12 3v9h9a9 9 0 0 0-9-9Z"/></svg>
+        <span class="sr-only" data-t="theme">Appearance</span>
+        <select id="theme" aria-label="Appearance">
+          <option value="system" data-t="system">System</option>
+          <option value="light" data-t="light">Light</option>
+          <option value="dark" data-t="dark">Dark</option>
+        </select>
+      </label>
+      <button type="button" id="new-hand" class="reset-button">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8V3m0 5h5M4 8a8 8 0 1 1-1 8"/></svg>
+        <span data-t="newHand">New hand</span>
+      </button>
+    </div>
+  </header>
+  <main id="calculator">
+    <div class="calculator-grid">
+      <section class="panel postflop" aria-labelledby="postflop-heading">
+        <div class="section-heading"><h1 id="postflop-heading" data-t="primaryTitle">Postflop</h1><span data-t="pathToAllIn">Your path to all-in</span></div>
+        <div class="primary-inputs">
+          <div class="amount-field">
+            <label for="pot"><span data-t="potLabel">Current pot</span><kbd>Alt+1</kbd></label>
+            <input id="pot" type="text" inputmode="decimal" enterkeyhint="next" dir="ltr" placeholder="0.0" autocomplete="off" spellcheck="false" aria-describedby="pot-hint pot-error" maxlength="512">
+            <span id="pot-hint" class="input-hint" data-t="potHint">Before your next bet</span>
+            <span id="pot-error" class="field-error" hidden></span>
+          </div>
+          <div class="amount-field">
+            <label for="stack"><span data-t="stackLabel">Effective stack</span><kbd>Alt+2</kbd></label>
+            <input id="stack" type="text" inputmode="decimal" enterkeyhint="done" dir="ltr" placeholder="0.0" autocomplete="off" spellcheck="false" aria-describedby="stack-hint stack-error" maxlength="512">
+            <span id="stack-hint" class="input-hint" data-t="stackHint">Smaller remaining stack</span>
+            <span id="stack-error" class="field-error" hidden></span>
+          </div>
+          <div class="spr-display">
+            <span class="eyebrow">SPR</span>
+            <output id="spr" class="number" dir="ltr" aria-label="Stack to pot ratio">—</output>
+            <span class="input-hint" data-t="sprFormula">Stack ÷ pot</span>
+          </div>
+        </div>
+        <div class="street-plans">
+          <article class="street-plan two" aria-labelledby="two-heading">
+            <div class="plan-top"><div><h2 id="two-heading" dir="ltr">2e</h2><span data-t="streets2">2 streets</span></div><div class="percentage"><output id="percent-2" class="number" dir="ltr">—</output><span data-t="perStreet">of pot each street</span></div></div>
+            <ol class="bet-path">
+              <li class="bet-step bet-now"><div class="bet-label"><strong data-t="betNow">BET NOW</strong><button class="copy" type="button" data-copy="bet-2-1" disabled></button></div><output id="bet-2-1" class="number" dir="ltr">—</output><span class="step-context" data-t="turn">Turn</span></li>
+              <li class="bet-step"><div class="bet-label"><strong data-t="river">River</strong><button class="copy" type="button" data-copy="bet-2-2" disabled></button></div><output id="bet-2-2" class="number" dir="ltr">—</output><span class="step-context"><strong data-t="allIn">All-in</strong> · <span data-t="afterCalls1">After 1 call</span></span></li>
+            </ol>
+            <span class="over-pot" id="over-2" hidden data-t="overPotShort">Over pot</span>
+          </article>
+          <article class="street-plan three" aria-labelledby="three-heading">
+            <div class="plan-top"><div><h2 id="three-heading" dir="ltr">3e</h2><span data-t="streets3">3 streets</span></div><div class="percentage"><output id="percent-3" class="number" dir="ltr">—</output><span data-t="perStreet">of pot each street</span></div></div>
+            <ol class="bet-path">
+              <li class="bet-step bet-now"><div class="bet-label"><strong data-t="betNow">BET NOW</strong><button class="copy" type="button" data-copy="bet-3-1" disabled></button></div><output id="bet-3-1" class="number" dir="ltr">—</output><span class="step-context" data-t="flop">Flop</span></li>
+              <li class="bet-step"><div class="bet-label"><strong data-t="turn">Turn</strong><button class="copy" type="button" data-copy="bet-3-2" disabled></button></div><output id="bet-3-2" class="number" dir="ltr">—</output><span class="step-context" data-t="afterCalls1">After 1 call</span></li>
+              <li class="bet-step"><div class="bet-label"><strong data-t="river">River</strong><button class="copy" type="button" data-copy="bet-3-3" disabled></button></div><output id="bet-3-3" class="number" dir="ltr">—</output><span class="step-context"><strong data-t="allIn">All-in</strong> · <span data-t="afterCalls2">After 2 calls</span></span></li>
+            </ol>
+            <span class="over-pot" id="over-3" hidden data-t="overPotShort">Over pot</span>
+          </article>
+        </div>
+        <div class="calculation-note"><p id="geometric-status" data-t="waitingForAmounts">Enter pot + stack. Both plans update instantly.</p><p data-t="rounded">Rounded to one decimal. Final bet = remaining effective stack.</p></div>
+      </section>
+      <section class="panel preflop" id="preflop" aria-labelledby="preflop-heading">
+        <div class="section-heading"><h2 id="preflop-heading" data-t="preflop">Preflop</h2><span data-t="raiseTo">Raise to</span></div>
+        <div class="amount-field">
+          <label for="facingBet"><span data-t="facingBet">Facing bet / raise</span><kbd>Alt+3</kbd></label>
+          <input id="facingBet" type="text" inputmode="decimal" enterkeyhint="done" dir="ltr" placeholder="0.0" autocomplete="off" spellcheck="false" aria-describedby="facingBet-hint facingBet-error" maxlength="512">
+          <span id="facingBet-hint" class="input-hint" data-t="facingBetHint">Their current total size</span>
+          <span id="facingBet-error" class="field-error" hidden></span>
+        </div>
+        <div class="raise-group"><h3 dir="ltr">3-BET</h3><div class="raise-grid">
+          <div class="raise-target"><span data-t="inPosition">In position</span><output id="raise-threeBetIP" class="number" dir="ltr">—</output><div class="raise-meta"><span dir="ltr">3x</span><button class="copy" type="button" data-copy="raise-threeBetIP" disabled></button></div></div>
+          <div class="raise-target"><span data-t="outOfPosition">Out of position</span><output id="raise-threeBetOOP" class="number" dir="ltr">—</output><div class="raise-meta"><span dir="ltr">4x</span><button class="copy" type="button" data-copy="raise-threeBetOOP" disabled></button></div></div>
+        </div></div>
+        <div class="raise-group"><h3 dir="ltr">4-BET</h3><div class="raise-grid">
+          <div class="raise-target"><span data-t="inPosition">In position</span><output id="raise-fourBetIP" class="number" dir="ltr">—</output><div class="raise-meta"><span dir="ltr">2.4x</span><button class="copy" type="button" data-copy="raise-fourBetIP" disabled></button></div></div>
+          <div class="raise-target"><span data-t="outOfPosition">Out of position</span><output id="raise-fourBetOOP" class="number" dir="ltr">—</output><div class="raise-meta"><span dir="ltr">2.6x</span><button class="copy" type="button" data-copy="raise-fourBetOOP" disabled></button></div></div>
+        </div></div>
+        <p id="preflop-status" class="calculation-note" data-t="totalTargets">Total targets, not extra chips to add.</p>
+      </section>
+    </div>
+    <section class="reference" aria-labelledby="reference-heading">
+      <div><h2 id="reference-heading" data-t="sprReference">SPR reference</h2><p data-t="percentOfPot">Percent of pot</p></div>
+      <table><caption class="sr-only" data-t="referenceCaption">Derived percentages of pot per street</caption><thead><tr><th scope="col">SPR</th><th scope="col">2</th><th scope="col">3</th><th scope="col">4</th><th scope="col">7</th><th scope="col">10</th><th scope="col">13</th><th scope="col">30</th></tr></thead><tbody id="reference-body"></tbody></table>
+    </section>
+    <footer class="app-footer">
+      <div><p id="units-note">Same units: chips, BB or currency.</p><p data-t="assumptionsNote">Heads-up · one matching call per street · no raises, folds, or rake. Arithmetic, not advice.</p></div>
+      <nav aria-label="About"><button id="assumptions-open" type="button" data-t="assumptions">Assumptions</button><a id="github" href="https://github.com/MagalHoresh/PokerSPRCalculator" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 19c-4 1-4-2-6-2m12 4v-4a3.5 3.5 0 0 0-1-2.7c3.3-.4 6.8-1.6 6.8-7.3a5.7 5.7 0 0 0-1.6-4A5.3 5.3 0 0 0 19.1-1S17.8-1.4 15 1a14 14 0 0 0-6 0C6.2-1.4 4.9-1 4.9-1a5.3 5.3 0 0 0-.1 4A5.7 5.7 0 0 0 3.2 7c0 5.7 3.5 6.9 6.8 7.3A3.5 3.5 0 0 0 9 17v4" transform="translate(0 2) scale(.92)"/></svg><span>GitHub</span></a></nav>
+    </footer>
+    <p class="privacy-note" data-t="privacy">No accounts, tracking or game integration.</p>
+  </main>
+  <div id="feedback" class="feedback" role="status" aria-live="polite" aria-atomic="true"></div>
+  <dialog id="assumptions-dialog" aria-labelledby="assumptions-title">
+    <div class="dialog-heading"><h2 id="assumptions-title" data-t="assumptionsTitle">Sizing, not a recommendation</h2><button type="button" id="assumptions-close" aria-label="Close">×</button></div>
+    <p data-t="effectiveStackExplanation"></p><p data-t="geometricExplanation"></p><p data-t="planExplanation"></p><p data-t="roundingExplanation"></p><p data-t="inputRules"></p>
+    <h3 data-t="browserTitle">Keyboard &amp; browser</h3><p data-t="shortcutHelp"></p><p data-t="noPin"></p><p data-t="themeNote"></p>
+    <p data-t="localHelp"></p><p data-t="githubSource"></p>
+  </dialog>
+  <noscript><p class="noscript">Enable JavaScript to calculate. All calculations run on your device.</p></noscript>
+  <p id="startup" role="status">Starting the calculator…</p>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
