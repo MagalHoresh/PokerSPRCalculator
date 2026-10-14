@@ -206,11 +206,21 @@ for (const field of fields) {
 }
 
 for (const language of ["en", "he"]) {
-  $(language === "en" ? "lang-en" : "lang-he").addEventListener("pointerdown", (event) => {
+  const button = $(language === "en" ? "lang-en" : "lang-he");
+  button.addEventListener("pointerdown", (event) => {
     // Do not blur the currently edited amount just to change its language/alignment.
     if (fields.some((field) => $(field) === document.activeElement)) event.preventDefault();
   });
-  $(language === "en" ? "lang-en" : "lang-he").addEventListener("click", () => {
+  button.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "touch" || !event.isPrimary
+        || !fields.some((field) => $(field) === document.activeElement)) return;
+    // WebKit can suppress the touch click after the focus-preserving pointerdown.
+    const box = button.getBoundingClientRect();
+    if (event.clientX >= box.left && event.clientX <= box.right
+        && event.clientY >= box.top && event.clientY <= box.bottom) button.click();
+  });
+  button.addEventListener("click", () => {
+    if (state.language === language) return;
     const active = document.activeElement;
     const selection = active instanceof HTMLInputElement ? [active.selectionStart, active.selectionEnd] : null;
     state.language = language;

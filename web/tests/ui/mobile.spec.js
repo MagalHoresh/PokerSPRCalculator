@@ -50,6 +50,164 @@ async function screen(page, tab, state) {
   }
 }
 
+async function standaloneCSS(page) {
+  // Neither desktop engine emulates the iOS Home Screen host. Force only its
+  // media condition, leaving the published declarations and size queries intact.
+  const count = await page.evaluate(() => {
+    let count = 0;
+    for (const sheet of document.styleSheets) for (const rule of sheet.cssRules) {
+      if (rule instanceof CSSMediaRule && rule.conditionText.includes("(display-mode: standalone)")) {
+        rule.media.mediaText = rule.conditionText.replace("(display-mode: standalone)", "(min-width: 0px)");
+        count++;
+      }
+    }
+    return count;
+  });
+  expect(count).toBe(1);
+}
+
+async function sharpHeader(page, standalone) {
+  const metrics = await page.evaluate(() => {
+    const header = document.querySelector(".app-header");
+    const visible = [header, document.documentElement, document.body, ...header.querySelectorAll("*")]
+      .filter((node) => node.getBoundingClientRect().width && node.getBoundingClientRect().height);
+    return {
+      margin: getComputedStyle(header).marginTop,
+      top: header.getBoundingClientRect().top,
+      padding: parseFloat(getComputedStyle(document.body).paddingTop),
+      effects: visible.filter((node) => {
+        const style = getComputedStyle(node);
+        return style.filter !== "none" || style.backdropFilter !== "none"
+          || style.maskImage !== "none" || style.opacity !== "1";
+      }).map((node) => node.id || node.tagName),
+      controls: ["lang-en", "lang-he", "theme", "new-hand", "mobile-help"].map((id) => {
+        const node = document.getElementById(id), box = node.getBoundingClientRect();
+        return { id, width: box.width, height: box.height, top: box.top, right: box.right, bottom: box.bottom };
+      }),
+      width: document.documentElement.clientWidth, height: document.documentElement.clientHeight,
+    };
+  });
+  const buffer = standalone && metrics.width <= 600 && metrics.height >= 550 ? 24 : 0;
+  expect(metrics.effects).toEqual([]);
+  expect(metrics.margin).toBe(`${buffer}px`);
+  expect(metrics.top).toBeCloseTo(metrics.padding + buffer, 1);
+  for (const control of metrics.controls) {
+    expect(control.width, control.id).toBeGreaterThanOrEqual(44);
+    expect(control.height, control.id).toBeGreaterThanOrEqual(44);
+    expect(control.top, control.id).toBeGreaterThanOrEqual(metrics.top);
+    expect(control.right, control.id).toBeLessThanOrEqual(metrics.width);
+    expect(control.bottom, control.id).toBeLessThanOrEqual(metrics.height);
+  }
+}
+
+for (const [width, height] of [[320, 568], [390, 844], [402, 874]]) for (const standalone of [false, true]) {
+  test(`mobile sharp header ${width}x${height} ${standalone ? "standalone CSS" : "browser"}`, async ({ page }, info) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width, height });
+    await start(page);
+    if (standalone) await standaloneCSS(page);
+    await sharpHeader(page, standalone);
+    for (const language of ["en", "he"]) for (const theme of ["light", "dark"]) {
+      await page.locator("#theme").selectOption(theme);
+      await page.locator("#tab-postflop").tap();
+      await page.locator("#pot").fill("100");
+      await page.locator("#stack").fill("241.6");
+      await page.locator("#stack").evaluate((node) => node.setSelectionRange(1, 3));
+      await page.locator(`#lang-${language}`).tap();
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      await expect(page.locator(`#lang-${language}`)).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator("#stack")).toBeFocused();
+      expect(await page.locator("#stack").evaluate((node) => [node.selectionStart, node.selectionEnd])).toEqual([1, 3]);
+      await sharpHeader(page, standalone);
+      await page.locator('[data-go="postflop"]').tap();
+      await expect(page.locator("#stack")).not.toBeFocused();
+      await screen(page, "postflop", "valid");
+      await page.locator(".app-header").screenshot({ path: info.outputPath(`header-${language}-${theme}.png`) });
+      if (standalone) await page.screenshot({ path: info.outputPath(`screen-${language}-${theme}.png`) });
+      await page.locator("#tab-preflop").tap();
+      await page.locator("#facingBet").fill("3");
+      await page.locator('[data-go="preflop"]').tap();
+      await screen(page, "preflop", "valid");
+      await sharpHeader(page, standalone);
+    }
+    await page.locator("#lang-en").focus();
+    await page.keyboard.press("Tab");
+    // WebKit's Tab policy can skip buttons; test keyboard focus styling without
+    // assuming the host's Full Keyboard Access preference.
+    await page.locator("#lang-he").focus();
+    await expect(page.locator("#lang-he")).toBeFocused();
+    expect(await page.locator("#lang-he").evaluate((node) => getComputedStyle(node).outlineWidth)).toBe("3px");
+    await page.keyboard.press("Tab");
+    await page.locator("#theme").focus();
+    await expect(page.locator("#theme")).toBeFocused();
+    expect(await page.locator(".theme-control").evaluate((node) => getComputedStyle(node).outlineWidth)).toBe("3px");
+    await page.setViewportSize({ width: 320, height: 518 });
+    await sharpHeader(page, standalone);
+    await page.setViewportSize({ width, height: 300 });
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await sharpHeader(page, standalone);
+    await page.setViewportSize({ width, height });
+    await sharpHeader(page, standalone);
+    await screen(page, "preflop", "valid");
+  });
+}
+
+test("standalone header buffer preserves portrait no-scroll and synthetic safe areas", async ({ page }) => {
+  test.setTimeout(90_000);
+  await start(page);
+  await standaloneCSS(page);
+  for (const [width, height] of [[320, 518], [320, 568], [360, 640], [375, 667], [390, 844], [430, 932]]) {
+    await page.setViewportSize({ width, height });
+    for (const language of ["en", "he"]) for (const theme of ["light", "dark"]) for (const state of ["empty", "valid", "error"]) {
+      await page.locator(`#lang-${language}`).click();
+      await page.locator("#theme").selectOption(theme);
+      await page.locator("#new-hand").click();
+      await page.locator("#tab-postflop").click();
+      if (state !== "empty") {
+        await page.locator("#pot").fill(state === "valid" ? "100" : "oops");
+        await page.locator("#stack").fill(state === "valid" ? "241.6" : "0");
+        await page.locator('[data-go="postflop"]').tap();
+      }
+      await sharpHeader(page, true);
+      await screen(page, "postflop", state);
+      await page.locator("#tab-preflop").click();
+      if (state !== "empty") {
+        await page.locator("#facingBet").fill(state === "valid" ? "3" : "oops");
+        await page.locator('[data-go="preflop"]').tap();
+      }
+      await screen(page, "preflop", state);
+    }
+  }
+  for (const [width, height, top, bottom] of [[320, 568, 20, 0], [390, 844, 59, 34], [402, 874, 62, 34]]) {
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-ready", "true");
+    await standaloneCSS(page);
+    // Substitute test insets in CSSOM; this does not reproduce native chrome.
+    await page.evaluate(({ top, bottom }) => {
+      const visit = (rules) => {
+        for (const rule of rules) {
+          if (rule instanceof CSSStyleRule && rule.selectorText === "body") {
+            rule.style.cssText = rule.style.cssText
+              .replaceAll("env(safe-area-inset-top)", `${top}px`)
+              .replaceAll("env(safe-area-inset-bottom)", `${bottom}px`);
+          } else if (rule.cssRules) visit(rule.cssRules);
+        }
+      };
+      for (const sheet of document.styleSheets) visit(sheet.cssRules);
+    }, { top, bottom });
+    await page.setViewportSize({ width, height });
+    await page.locator("#pot").fill("oops");
+    await page.locator("#stack").fill("0");
+    await page.locator('[data-go="postflop"]').tap();
+    await sharpHeader(page, true);
+    expect(await page.locator(".app-header").evaluate((node) => node.getBoundingClientRect().top)).toBe(top + 24);
+    await screen(page, "postflop", "error");
+    await page.locator("#tab-preflop").click();
+    await screen(page, "preflop", "empty");
+  }
+});
+
 for (const [width, height] of [[320, 568], [360, 640], [375, 667], [390, 844], [430, 932], [320, 518]]) {
   test(`mobile one screen ${width}x${height}, both calculators/languages/themes/states`, async ({ page }, info) => {
     test.setTimeout(90_000);
@@ -192,7 +350,7 @@ test("mobile help/reference/source without main scroll; accessible reduced-heigh
   }
 });
 
-test("mobile tiny and largest amounts retain full LTR text, safe copying and one-screen plans", async ({ page }) => {
+for (const standalone of [false, true]) test(`mobile tiny and largest amounts retain full LTR text, safe copying and one-screen plans ${standalone ? "standalone CSS" : "browser"}`, async ({ page }) => {
   await page.addInitScript(() => {
     window.__copied = [];
     Object.defineProperty(navigator, "clipboard", {
@@ -201,6 +359,7 @@ test("mobile tiny and largest amounts retain full LTR text, safe copying and one
   });
   await page.setViewportSize({ width: 320, height: 568 });
   await start(page);
+  if (standalone) await standaloneCSS(page);
   for (const language of ["en", "he"]) for (const theme of ["light", "dark"]) {
     await page.locator(`#lang-${language}`).click();
     await page.locator("#theme").selectOption(theme);

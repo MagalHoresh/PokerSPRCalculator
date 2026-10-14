@@ -273,6 +273,17 @@ dialog h3 { font-size: 16px; margin-top: 20px; }
   .bet-step .number { min-height: 32px; }
   .raise-group + .raise-group { padding-top: 6px; }
 }
+@media (display-mode: standalone) and (max-width: 600px) and (min-height: 550px) {
+  /* Keep controls below the Home Screen host's soft top scroll edge. */
+  .app-header { margin-top: 24px; }
+  @media (max-height: 600px) {
+    .postflop { gap: 2px; }
+    .primary-inputs { row-gap: 2px; }
+    .street-plans { gap: 2px; }
+    .street-plan { gap: 2px; padding-block: 2px; }
+    .bet-step { padding-block: 3px 2px; }
+  }
+}
 @media (max-width: 300px) {
   .app-header, .toolbar { flex-wrap: wrap; }
   .toolbar { width: 100%; justify-content: flex-end; }
