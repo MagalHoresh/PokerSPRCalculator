@@ -37,8 +37,11 @@ and instructions explain manual copying instead of silently reporting success.
 
 **Calculator / Practice** navigation preserves calculator inputs. Practice has
 independent **Live / Online** settings and stats, with no backend, accounts,
-analytics or game integration. Decorative card backs have no ranks, suits or
-effect on the arithmetic. Mobile Practice combines page navigation and appearance/
+analytics or game integration. The minimal oval table shows only the opponent
+and stack at the top, the pot in the center, and you and your stack at the bottom.
+There are no position labels, dealer marker, inactive seats or decorative cards.
+Brief action bubbles sit beside the player panels, leaving the amounts clear.
+Mobile Practice combines page navigation and appearance/
 language controls into one compact row, and sizes the table to the available
 viewport. Finished-round feedback takes the table's place rather than extending
 the page; both Live street-result bars stay visible side by side. Normal portrait
@@ -83,17 +86,16 @@ the underlying SPR calculation retain full precision.
 Timeouts show the target without
 inventing a bet marker. No range or solution appears between Live answers.
 Large **2E / 3E** badges show only **2 / 3 streets to all-in** underneath,
-without answer counters. Each seat has two decorative card backs; the community board shows
-three on the flop and four on the turn. Cards are non-interactive and hidden
-from assistive technology; street labels carry the actual game state.
+without answer counters. The street track carries the game state without
+repeating it through a decorative board.
 
 Each **2e** spot starts on the turn, or sometimes on the flop when hero is out
 of position. A flop **2e** ends all-in on the turn; a turn **2e** ends on the
 river. **3e** starts on the flop and ends on the river. The street track,
 grading and result bars follow the selected plan, not just the current street.
-Hero remains physically at the bottom of a nine-seat Live / six-seat Online
-table, with poker positions, dealer and opponent check consistent with clockwise
-seat order. Only hero/opponent participate. Their stacks usually differ; find
+The two player panels stay in the same places in both modes and languages.
+Action order can still vary; an opponent acting before hero checks.
+Only hero/opponent participate. Their stacks usually differ; find
 the smaller stack yourself. No effective stack, SPR or target sizing is revealed
 while a round is active. Final range bars show the correct sizing, your bet and
 the accepted range directly. Display values are rounded (Online ranges marked
@@ -115,8 +117,13 @@ Other rounds require one answer. The final turn/river shove is never another ans
 Wrong sizing ends the round immediately; Live 3e records one successful round
 only after both answers succeed. Opponent actions use brief comic-style Check /
 Call bubbles; matching bets animate chips from both players into the pot.
-An in-position hero waits for the opponent's check, including on the turn after
-a flop call, with a one-second pause between the call and check effects.
+An accepted Live 3e flop bet stays visible for one second before the opponent
+calls. After one more second, the turn and next bet become ready. The opponent's
+stack and called pot update only when the call happens, using the exact submitted
+bet. The turn check, if required by position, appears as action reaches hero
+without extending this two-second sequence. Opening opponent checks still
+precede hero's first bet. Pauses use absolute timestamps, so navigating away,
+changing language or returning from a hidden tab cannot restart them.
 The bet field stays enabled but read-only until action reaches hero,
 without reopening the keyboard or adding an extra action.
 An amount above either remaining stack shows **Maximum bet** beside the input
@@ -127,6 +134,8 @@ never moves focus away from the calculator.
 
 Online allows decimals, fill-only **33% / 66% / 100%** buttons, and **Chips / BB**
 conversion that retains the exact underlying draft and deadline.
+In BB mode, each displayed monetary amount carries a visible **BB** suffix,
+including stacks, pots and bet/call effects; chips-mode amounts stay unit-free.
 Table amounts and automatically filled/converted bets show at most two decimal
 places, without changing the underlying amount used for grading. Custom blind
 settings and manually typed inputs retain their entered precision.

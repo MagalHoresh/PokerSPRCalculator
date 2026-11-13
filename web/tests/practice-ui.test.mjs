@@ -91,6 +91,7 @@ async function harness(storage = storagePort(), realLabels = false, language = "
     submitPracticeBet: (round, bet) => core.submitPracticeBet(round, bet, now),
     expirePracticeRound: (round) => core.expirePracticeRound(round, now),
     practiceActionView: (round) => core.practiceActionView(round, now),
+    practiceTableView: (round) => core.practiceTableView(round, now),
     document: {
       createElement: () => new Element(),
       querySelector: selector,
@@ -141,7 +142,7 @@ async function harness(storage = storagePort(), realLabels = false, language = "
     },
     async run(operation) {
       await ui.perform(operation);
-      if (autoActions && ui.round && ["check", "call", "pause"].includes(core.practiceActionView(ui.round, now).phase)) {
+      if (autoActions && ui.round && ["bet", "check", "call"].includes(core.practiceActionView(ui.round, now).phase)) {
         now = ui.round.action.readyAt;
         ui.tick();
         await ui.work;
@@ -305,7 +306,7 @@ test("Online check bubble precedes hero controls and the full clock; toggles and
   }
 });
 
-test("Live calls send both actual wagers to the visible pot, then check when in position, without leaking a solution", async () => {
+test("Live 3E shows the bet, waits one second for the call, then one second for the next input without leaking a solution", async () => {
   for (const language of ["en", "he"]) for (const checks of [false, true]) {
     const h = await harness(storagePort(), true, language, { autoActions: false, random: checks ? () => 0.75 : undefined });
     await h.run(() => h.ui.start());
@@ -316,6 +317,25 @@ test("Live calls send both actual wagers to the visible pot, then check when in 
     await h.run(() => h.ui.submit());
     const table = h.nodes.get("practice-table");
     const action = h.ui.round.action;
+    const hero = table.children.find((node) => node.className === "poker-seat hero");
+    let opponent = table.children.find((node) => node.className === "poker-seat opponent");
+    assert.equal(table.dataset.phase, "bet");
+    assert.ok(findClass(hero, "seat-speech").textContent.includes(catalog[language].practiceBet));
+    assert.ok(findClass(hero, "seat-speech").textContent.includes("41"));
+    assert.equal(findClass(opponent, "seat-speech"), null);
+    assert.equal(findClass(table, "wager-chips"), null);
+    assert.equal(findClass(hero, "seat-stack").textContent, "359");
+    assert.equal(findClass(opponent, "seat-stack").textContent, "245");
+    assert.equal(h.nodes.get("practice-progress").children[0].dataset.current, "true");
+    assert.equal(h.nodes.get("practice-progress").children[1].dataset.current, "false");
+    assert.equal(findClass(table, "pot-start"), null);
+    const writes = h.storage.writes;
+    await h.advance(action.startedAt + 999);
+    assert.equal(table.dataset.phase, "bet");
+    assert.equal(h.nodes.get("practice-submit").disabled, true);
+    h.selectPage("calculator");
+    await h.advance(action.startedAt + 1000);
+    h.selectPage("practice");
     const bubble = findClass(table, "seat-speech");
     assert.equal(table.dataset.phase, "call");
     assert.ok(bubble.textContent.includes(catalog[language].practiceCall));
@@ -329,8 +349,8 @@ test("Live calls send both actual wagers to the visible pot, then check when in 
     }
     assert.ok(findClass(table, "table-pot").textContent.includes("182"));
     assert.ok(findClass(table, "pot-start").textContent.includes("100"));
-    assert.equal(findClass(table.children[0], "seat-stack").textContent, "359");
-    const opponent = table.children.find((node) => node.className === "poker-seat opponent");
+    assert.equal(findClass(table.children.find((node) => node.className === "poker-seat hero"), "seat-stack").textContent, "359");
+    opponent = table.children.find((node) => node.className === "poker-seat opponent");
     assert.equal(findClass(opponent, "seat-stack").textContent, "204");
     assert.equal(h.nodes.get("practice-bet").readOnly, true);
     assert.equal(h.nodes.get("practice-bet").disabled, false);
@@ -338,46 +358,78 @@ test("Live calls send both actual wagers to the visible pot, then check when in 
     assert.equal(h.nodes.get("practice-clock").hidden, true);
     assert.equal(h.nodes.get("practice-ranges").children.length, 0);
     assert.equal(h.ui.store.data.live.stats.played, 0);
-    await h.advance(action.startedAt + core.PRACTICE_ACTION_MS / 2);
+    await h.advance(action.startedAt + 1500);
     h.ui.localize();
     assert.equal(findClass(table, "seat-speech"), bubble, "An unchanged render must not replay the call");
-    const callEnd = action.startedAt + core.PRACTICE_ACTION_MS;
-    await h.advance(callEnd);
-    assert.equal(table.dataset.phase, checks ? "pause" : "hero");
-    assert.equal(findClass(table, "wager-chips"), null);
-    if (checks) {
-      assert.equal(findClass(table, "seat-speech"), null);
-      assert.equal(h.nodes.get("practice-submit").disabled, true);
-      assert.equal(h.nodes.get("practice-bet").readOnly, true);
-      assert.equal(h.timers.size, 1);
-      await h.advance(callEnd + 999);
-      assert.equal(table.dataset.phase, "pause");
-      assert.equal(findClass(table, "seat-speech"), null);
-      assert.equal(h.nodes.get("practice-ranges").children.length, 0);
-      await h.advance(callEnd + 1000);
-      assert.equal(table.dataset.phase, "check");
-      assert.equal(findClass(table, "seat-speech").textContent, catalog[language].practiceCheck);
-      assert.equal(h.nodes.get("practice-submit").disabled, true);
-    }
+    await h.advance(action.startedAt + 1999);
+    assert.equal(table.dataset.phase, "call");
+    assert.equal(h.nodes.get("practice-submit").disabled, true);
+    assert.equal(h.nodes.get("practice-bet").readOnly, true);
+    assert.equal(h.timers.size, 1);
     await h.advance(action.readyAt);
     assert.equal(table.dataset.phase, "hero");
-    assert.equal(findClass(table, "seat-speech"), null);
+    assert.equal(findClass(table, "wager-chips"), null);
+    assert.equal(findClass(table, "seat-speech")?.textContent ?? null, checks ? catalog[language].practiceCheck : null);
+    assert.equal(h.nodes.get("practice-progress").children[1].dataset.current, "true");
     assert.equal(h.nodes.get("practice-bet").readOnly, false);
     assert.equal(h.nodes.get("practice-submit").disabled, false);
     assert.equal(h.nodes.get("practice-ranges").children.length, 0);
     assert.equal(h.timers.size, 0);
+    assert.equal(h.storage.writes, writes);
     h.enter(String(Math.round(core.practiceTarget(h.ui.round).idealBet)));
     await h.run(() => h.ui.submit());
     assert.equal(h.ui.round.status, "correct");
     assert.equal(table.dataset.phase, "call");
     assert.equal(h.ui.store.data.live.stats.played, 1);
     assert.equal(h.nodes.get("practice-clock").hidden, true);
-    const writes = h.storage.writes;
+    const finalWrites = h.storage.writes;
     await h.advance(h.ui.round.action.readyAt);
     assert.equal(table.dataset.phase, "complete");
     assert.equal(findClass(table, "wager-chips"), null);
     assert.equal(h.timers.size, 0);
+    assert.equal(h.storage.writes, finalWrites);
+    assert.equal(h.errors.length, 0);
+  }
+});
+
+test("Online BB amounts visibly carry their unit on stacks, pots, calls and wagers without changing the exact draft or clock", async () => {
+  for (const language of ["en", "he"]) {
+    const h = await harness(storagePort(), true, language, { autoActions: false, random: () => 0.75 });
+    await h.run(() => h.ui.changeMode("online"));
+    await h.run(() => h.ui.start());
+    const deadline = h.ui.round.deadline;
+    const writes = h.storage.writes;
+    h.nodes.get("practice-bb").listeners.click();
+    await h.ui.work;
+    let table = h.nodes.get("practice-table");
+    const stacks = table.querySelectorAll(".seat-stack");
+    for (const stack of stacks) {
+      assert.match(stack.textContent, /^\d+(?:\.\d+)? BB$/);
+      assert.equal(findClass(stack, "practice-amount-unit").textContent, " BB");
+    }
+    assert.ok(findClass(table, "table-pot").textContent.includes(`${h.ui.number(h.ui.round.pot)} BB`));
+    await h.advance(h.ui.round.action.readyAt);
+    const target = core.practiceTarget(h.ui.round);
+    h.enter(core.practiceInputText(target.idealBet / h.ui.round.settings.bigBlind));
+    const exact = h.ui.draft.value;
+    h.nodes.get("practice-chips").listeners.click();
+    await h.ui.work;
+    assert.equal(findClass(table, "practice-amount-unit"), null);
+    assert.equal(h.ui.draft.value, exact);
+    h.nodes.get("practice-bb").listeners.click();
+    await h.ui.work;
+    assert.equal(h.ui.draft.value, exact);
+    assert.equal(h.ui.round.deadline, deadline);
     assert.equal(h.storage.writes, writes);
+    await h.run(() => h.ui.submit());
+    table = h.nodes.get("practice-table");
+    assert.equal(h.ui.round.status, "correct");
+    assert.match(findClass(table, "seat-speech").textContent, / BB$/);
+    const wagers = table.querySelectorAll(".wager-chips");
+    assert.equal(wagers.length, 2);
+    for (const wager of wagers) assert.match(wager.textContent, / BB$/);
+    assert.ok(findClass(table, "table-pot").textContent.includes(" BB"));
+    assert.ok(findClass(table, "pot-start").textContent.includes(`${h.ui.number(h.ui.round.initialPot)} BB`));
     assert.equal(h.errors.length, 0);
   }
 });
@@ -558,27 +610,37 @@ test("2E/3E header shows only the badge and streets-to-all-in goal throughout a 
   }
 });
 
-test("decorative backs show two cards per seat and a three/four-card board without disclosing any card values", async () => {
-  for (const mode of ["live", "online"]) {
-    const h = await harness();
+test("the minimal table keeps just opponent, pot and hero in fixed reading order without positions or decorations", async () => {
+  for (const language of ["en", "he"]) for (const mode of ["live", "online"]) {
+    const h = await harness(storagePort(), true, language);
     await h.run(() => h.ui.changeMode(mode));
     await h.run(() => h.ui.start());
     const table = h.nodes.get("practice-table");
-    const assertBoard = (count) => {
-      const board = findClass(table, "community-cards");
-      assert.equal(board.children.length, count);
-      assert.equal(board.attributes["aria-hidden"], "true");
-      assert.equal(board.textContent, "");
+    const assertTable = () => {
+      assert.deepEqual(Array.from(table.children, (node) => node.className), [
+        "poker-seat opponent", "table-center", "poker-seat hero",
+      ]);
       const seats = table.children.filter((node) => node.className?.startsWith("poker-seat "));
-      assert.equal(seats.length, mode === "live" ? 9 : 6);
-      for (const seat of seats) {
-        const cards = findClass(seat, "hole-cards");
-        assert.equal(cards.children.length, 2);
-        assert.equal(cards.attributes["aria-hidden"], "true");
-        assert.ok(cards.children.every((card) => card.className === "card-back" && card.textContent === ""));
+      assert.equal(seats.length, 2);
+      assert.equal(seats[0].style.values["--seat-x"], "50%");
+      assert.equal(seats[0].style.values["--seat-y"], "16%");
+      assert.equal(seats[1].style.values["--seat-x"], "50%");
+      assert.equal(seats[1].style.values["--seat-y"], "84%");
+      assert.equal(findClass(seats[0], "seat-name").textContent, catalog[language].practiceOpponent);
+      assert.equal(findClass(seats[1], "seat-name").textContent, catalog[language].practiceHero);
+      const view = core.practiceTableView(h.ui.round);
+      assert.equal(findClass(seats[0], "seat-stack").textContent, h.ui.number(view.opponentStack));
+      assert.equal(findClass(seats[1], "seat-stack").textContent, h.ui.number(view.heroStack));
+      for (const name of ["seat-position", "seat-dealer", "seat-avatar", "poker-seat inactive", "card-back", "community-cards", "pot-chips"]) {
+        assert.equal(findClass(table, name), null);
       }
+      assert.equal(h.nodes.get("practice-ranges").hidden, true);
     };
-    assertBoard(3);
+    assertTable();
+    const count = mode === "live" ? 9 : 6;
+    h.ui.round = { ...h.ui.round, seating: core.practiceSeating(count, count - 1, 1) };
+    h.ui.render();
+    assertTable();
     if (mode === "live") {
       h.enter(String(Math.round(core.practiceTarget(h.ui.round).idealBet)));
       await h.run(() => h.ui.submit());
@@ -587,8 +649,7 @@ test("decorative backs show two cards per seat and a three/four-card board witho
       h.ui.round = { ...h.ui.round, e: 2, street: "turn" };
       h.ui.render();
     }
-    assertBoard(4);
-    assert.equal(h.nodes.get("practice-ranges").hidden, true);
+    assertTable();
   }
 });
 
@@ -1097,7 +1158,7 @@ test("out-of-position flop 2E shows Flop to Turn and ends after one bet with a f
     const progress = h.nodes.get("practice-progress").children;
     assert.deepEqual(Array.from(progress, (step) => step.textContent), [catalog[language].flop, catalog[language].turn]);
     assert.equal(progress[0].dataset.current, "true");
-    assert.equal(findClass(h.nodes.get("practice-table"), "community-cards").children.length, 3);
+    assert.equal(findClass(h.nodes.get("practice-table"), "community-cards"), null);
     assert.equal(h.nodes.get("practice-ranges").hidden, true);
     const deadline = h.ui.round.deadline;
     h.enter("50");

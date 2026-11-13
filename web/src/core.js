@@ -177,23 +177,24 @@ export const PRACTICE_STAKES = Object.freeze({
 });
 export const PRACTICE_STORAGE_KEY = "poker-spr-practice-v1";
 export const PRACTICE_ACTION_MS = 900;
-const PRACTICE_CHECK_PAUSE_MS = 1000;
+const PRACTICE_BET_PAUSE_MS = 1000;
 const PRACTICE_TOLERANCE = 0.05;
 
-function practiceAction(kind, now, checkAfter = false) {
-  return { kind, startedAt: now, readyAt: now + (kind === "none" ? 0 : PRACTICE_ACTION_MS)
-    + (checkAfter ? PRACTICE_CHECK_PAUSE_MS + PRACTICE_ACTION_MS : 0) };
+function practiceAction(kind, now) {
+  return { kind, startedAt: now, readyAt: now + (kind === "bet" ? 2 * PRACTICE_BET_PAUSE_MS
+    : kind === "none" ? 0 : PRACTICE_ACTION_MS) };
 }
 
 export function practiceActionView(round, now = Date.now()) {
   if (!["playing", "correct"].includes(round.status)) return { phase: "complete" };
   const action = round.action;
-  const firstEnd = action.startedAt + (action.kind === "none" ? 0 : PRACTICE_ACTION_MS);
-  if (now < firstEnd) return { phase: action.kind, startedAt: action.startedAt };
-  if (now < action.readyAt) {
-    const checkStart = action.readyAt - PRACTICE_ACTION_MS;
-    return now < checkStart ? { phase: "pause" } : { phase: "check", startedAt: checkStart };
+  if (action.kind === "bet" && now < action.startedAt + PRACTICE_BET_PAUSE_MS) {
+    return { phase: "bet", startedAt: action.startedAt };
   }
+  if (now < action.readyAt) return {
+    phase: action.kind === "bet" ? "call" : action.kind,
+    startedAt: action.startedAt + (action.kind === "bet" ? PRACTICE_BET_PAUSE_MS : 0),
+  };
   return { phase: round.status === "playing" ? "hero" : "complete" };
 }
 
@@ -350,7 +351,7 @@ export function submitPracticeBet(round, actualBet, now = Date.now()) {
   const answers = [...round.answers, answer];
   if (!correct) return { ...round, answers, status: "incorrect" };
   const advance = round.mode === "live" && round.e === 3 && round.street === "flop";
-  const action = practiceAction("call", now, advance && round.seating.opponentChecks);
+  const action = practiceAction(advance ? "bet" : "call", now);
   if (!advance) return { ...round, action, answers, status: "correct" };
   return { ...round, action, answers, street: "turn", pot: round.pot + 2 * actualBet,
     heroStack: round.heroStack - actualBet, opponentStack: round.opponentStack - actualBet };
@@ -377,16 +378,19 @@ export function practiceNextBet(answer) {
   return { status: "bet", street: answer.street === "flop" ? "turn" : "river", bet, pot, fraction: bet / pot };
 }
 
-export function practiceTableView(round) {
+export function practiceTableView(round, now = Date.now()) {
   const advanced = round.mode === "live" && round.e === 3 && round.street === "turn" && round.answers[0]?.correct;
   const last = round.answers.at(-1);
   const called = last?.correct ? last : null;
+  const phase = practiceActionView(round, now).phase;
+  const betting = phase === "bet";
+  const awaitingTurn = round.action.kind === "bet" && ["bet", "call"].includes(phase);
   return {
-    street: round.street, e: round.e, initialPot: round.initialPot,
-    visiblePot: called ? called.pot + 2 * called.actualBet : round.pot,
+    street: awaitingTurn ? last.street : round.street, e: round.e, initialPot: round.initialPot,
+    visiblePot: called ? called.pot + (betting ? 0 : 2 * called.actualBet) : round.pot,
     heroStack: called ? called.heroStack - called.actualBet : round.heroStack,
-    opponentStack: called ? called.opponentStack - called.actualBet : round.opponentStack, seating: round.seating,
-    calledBet: advanced ? round.answers[0].actualBet : null,
+    opponentStack: called ? called.opponentStack - (betting ? 0 : called.actualBet) : round.opponentStack, seating: round.seating,
+    calledBet: advanced && !betting ? round.answers[0].actualBet : null,
   };
 }
 

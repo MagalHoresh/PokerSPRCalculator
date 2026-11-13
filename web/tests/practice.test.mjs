@@ -186,29 +186,34 @@ test("Online fixes a full thirty-second deadline after the position-dependent ch
   }
 });
 
-test("Live flop call pauses one second before an optional turn check; exact amounts remain visible", () => {
+test("Live 3E waits one second to call and another second for the next bet, independently of position", () => {
   for (const checks of [false, true]) {
     const initial = spot({ mode: "live", e: 3, street: "flop", deadline: null, heroStack: 400, opponentStack: 245,
       seating: practiceSeating(9, checks ? 0 : 1, 1) });
     const turn = submitPracticeBet(initial, 41, 1000);
     assert.equal(turn.status, "playing");
-    assert.equal(practiceActionView(turn, 1000).phase, "call");
-    const callEnd = 1000 + PRACTICE_ACTION_MS;
-    assert.equal(practiceActionView(turn, callEnd - 1).phase, "call");
-    assert.equal(practiceActionView(turn, callEnd).phase, checks ? "pause" : "hero");
-    assert.equal(turn.action.readyAt, callEnd + (checks ? 1000 + PRACTICE_ACTION_MS : 0));
-    if (checks) {
-      assert.equal(practiceActionView(turn, callEnd + 999).phase, "pause");
-      const check = practiceActionView(turn, callEnd + 1000);
-      assert.equal(check.phase, "check");
-      assert.equal(check.startedAt, callEnd + 1000);
-      assert.throws(() => submitPracticeBet(turn, 50, callEnd + 500), /practiceWaitForAction/);
-    }
-    const view = practiceTableView(turn);
+    assert.equal(practiceActionView(turn, 1000).phase, "bet");
+    assert.equal(practiceActionView(turn, 1999).phase, "bet");
+    const pending = practiceTableView(turn, 1999);
+    assert.equal(pending.street, "flop");
+    assert.equal(pending.visiblePot, 100);
+    assert.equal(pending.heroStack, 359);
+    assert.equal(pending.opponentStack, 245);
+    assert.equal(pending.calledBet, null);
+    const call = practiceActionView(turn, 2000);
+    assert.equal(call.phase, "call");
+    assert.equal(call.startedAt, 2000);
+    assert.equal(practiceActionView(turn, 2999).phase, "call");
+    assert.equal(practiceActionView(turn, 3000).phase, "hero");
+    assert.equal(turn.action.readyAt, 3000);
+    const view = practiceTableView(turn, 2000);
+    assert.equal(view.street, "flop");
     assert.equal(view.visiblePot, 182);
     assert.equal(view.initialPot, 100);
     assert.equal(view.heroStack, 359);
     assert.equal(view.opponentStack, 204);
+    assert.equal(view.calledBet, 41);
+    assert.equal(practiceTableView(turn, 3000).street, "turn");
     const bet = Math.round(practiceTarget(turn).idealBet);
     assert.throws(() => submitPracticeBet(turn, bet, turn.action.readyAt - 1), /practiceWaitForAction/);
     const final = submitPracticeBet(turn, bet, turn.action.readyAt);
@@ -216,6 +221,7 @@ test("Live flop call pauses one second before an optional turn check; exact amou
     assert.equal(final.answers.length, 2);
     assert.equal(practiceTableView(final).visiblePot, 182 + 2 * bet);
     assert.equal(practiceTableView(final).opponentStack, 204 - bet);
+    assert.equal(practiceActionView(turn, 1_000_000).phase, "hero", "Hidden time must not replay the pauses");
   }
 });
 

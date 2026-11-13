@@ -35,8 +35,10 @@ matches the native applications.
 
 ## SPR practice on the web
 
-Practice on a graphical nine-seat **Live** or six-seat **Online** table. Identify
-the smaller remaining stack and calculate your own bet; SPR and target sizing
+Practice in **Live** or **Online** mode on a minimal oval table: opponent and
+stack at the top, pot in the center, and you and your stack at the bottom.
+Position labels, the dealer marker, inactive seats and decorative cards are
+omitted. Identify the smaller remaining stack and calculate your own bet; SPR and target sizing
 stay hidden until the round ends. Randomized **2E / 3E** spots use the same
 full-precision geometric math as the calculator.
 

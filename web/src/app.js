@@ -107,7 +107,8 @@ function update() {
 function fitNumbers() {
   cancelAnimationFrame(fitFrame);
   fitFrame = requestAnimationFrame(() => {
-    for (const node of numbers) {
+    const practiceAmounts = document.querySelectorAll(".seat-stack:has(.practice-amount-unit), .table-pot > strong:has(.practice-amount-unit)");
+    for (const node of [...numbers, ...practiceAmounts]) {
       node.style.removeProperty("font-size");
       delete node.dataset.wrap;
       const available = node.clientWidth;
@@ -541,6 +542,18 @@ class PracticeUI {
     const bigBlind = this.round?.settings.bigBlind ?? this.store.data[this.mode].settings.bigBlind;
     return this.decimal(practiceDisplayValue(value, this.unit(), bigBlind));
   }
+  amountNode(value) {
+    const amount = document.createElement("bdi");
+    amount.dir = "ltr";
+    amount.textContent = this.number(value);
+    if (this.unit() === "bb") {
+      const unit = document.createElement("span");
+      unit.className = "practice-amount-unit";
+      unit.textContent = ` ${this.unitName()}`;
+      amount.append(unit);
+    }
+    return amount;
+  }
   unitName() { return translate(this.unit() === "bb" ? "practiceBB" : "practiceChips"); }
   fieldError(prefix, key) {
     this.fieldErrors[prefix] = key;
@@ -621,7 +634,7 @@ class PracticeUI {
   stopTimer() { clearInterval(this.timer); this.timer = null; }
   syncTimer() {
     const phase = this.round ? practiceActionView(this.round).phase : "complete";
-    const needed = !this.blocked && ((this.playing() && this.mode === "online") || ["check", "call", "pause"].includes(phase));
+    const needed = !this.blocked && ((this.playing() && this.mode === "online") || ["bet", "check", "call"].includes(phase));
     if (needed && this.timer === null) this.timer = setInterval(() => this.tick(), 100);
     else if (!needed && this.timer !== null) this.stopTimer();
   }
@@ -771,8 +784,6 @@ class PracticeUI {
       const round = this.round;
       $("practice-kind").textContent = `${round.e}E`;
       $("practice-goal").textContent = translate("practiceAllInGoal", { streets: round.e });
-      $("practice-street").textContent = `${round.e}e · ${translate(round.street)}`;
-      $("practice-street").dir = state.language === "he" ? "rtl" : "ltr";
       $("practice-bet-form").hidden = !this.playing();
       $("practice-result").hidden = this.playing();
       $("practice-result-text").textContent = translate({
@@ -978,28 +989,20 @@ class PracticeUI {
     });
   }
   renderProgress() {
-    const start = this.round.e === 3 || this.round.street === "flop" ? 0 : 1;
+    const currentStreet = practiceTableView(this.round).street;
+    $("practice-street").textContent = `${this.round.e}e · ${translate(currentStreet)}`;
+    $("practice-street").dir = state.language === "he" ? "rtl" : "ltr";
+    const start = this.round.e === 3 || currentStreet === "flop" ? 0 : 1;
     const streets = ["flop", "turn", "river"].slice(start, start + this.round.e);
     const steps = streets.map((street) => {
       const step = document.createElement("li");
       step.textContent = translate(street);
-      step.dataset.current = String(this.playing() && this.round.street === street);
+      step.dataset.current = String(this.playing() && currentStreet === street);
       step.dataset.complete = String(this.round.answers.some((answer) => answer.street === street && answer.correct));
       step.setAttribute("aria-current", step.dataset.current === "true" ? "step" : "false");
       return step;
     });
     $("practice-progress").replaceChildren(...steps);
-  }
-  decorativeCards(count, className) {
-    const cards = document.createElement("div");
-    cards.className = className;
-    cards.setAttribute("aria-hidden", "true");
-    for (let index = 0; index < count; index++) {
-      const back = document.createElement("span");
-      back.className = "card-back";
-      cards.append(back);
-    }
-    return cards;
   }
   renderTable() {
     const view = practiceTableView(this.round);
@@ -1008,126 +1011,96 @@ class PracticeUI {
     const revision = JSON.stringify([this.round.id, view, this.round.status, effect.phase, this.unit(), state.language]);
     if (revision === this.tableRevision) return;
     this.tableRevision = revision;
-    table.dataset.motion = this.tableRoundId !== this.round.id ? "deal" : this.tableStreet !== this.round.street ? "turn" : "";
+    table.dataset.motion = this.tableRoundId !== this.round.id ? "deal" : this.tableStreet !== view.street ? "turn" : "";
     table.dataset.playing = String(this.heroActing());
     table.dataset.phase = effect.phase;
     table.style.setProperty("--action-duration", `${PRACTICE_ACTION_MS}ms`);
-    table.style.setProperty("--action-delay", `${effect.startedAt === undefined ? 0 : Math.min(0, effect.startedAt - Date.now())}ms`);
+    table.style.setProperty("--action-delay", `${Math.min(0, (effect.startedAt ?? this.round.action.readyAt) - Date.now())}ms`);
     this.tableRoundId = this.round.id;
-    this.tableStreet = this.round.street;
-    table.className = `poker-table seats-${view.seating.seats.length}`;
+    this.tableStreet = view.street;
+    this.renderProgress();
+    table.className = "poker-table";
     const wagers = [];
-    const seats = view.seating.seats.map((seat) => {
+    const seats = [false, true].map((hero) => {
       const node = document.createElement("div");
-      node.className = `poker-seat ${seat.active ? seat.hero ? "hero" : "opponent" : "inactive"}`;
-      const angle = Math.PI / 2 + seat.seat * Math.PI * 2 / view.seating.seats.length;
-      const x = `calc(50% + ${Math.cos(angle)} * var(--seat-radius))`;
-      const y = `${50 + 36 * Math.sin(angle)}%`;
+      node.className = `poker-seat ${hero ? "hero" : "opponent"}`;
+      const x = "50%";
+      const y = hero ? "84%" : "16%";
       node.style.setProperty("--seat-x", x);
       node.style.setProperty("--seat-y", y);
       const card = document.createElement("div");
       card.className = "seat-card";
-      const avatar = document.createElement("div");
-      avatar.className = "seat-avatar";
-      avatar.setAttribute("aria-hidden", "true");
-      avatar.append(this.decorativeCards(2, "hole-cards"));
-      card.append(avatar);
-      if (seat.active) {
-        const name = document.createElement("span");
-        name.className = "seat-name";
-        name.textContent = translate(seat.hero ? "practiceHero" : "practiceOpponent");
-        const position = document.createElement("bdi");
-        position.className = "seat-position";
-        position.textContent = seat.position;
-        card.append(name, position);
-        const label = document.createElement("div");
-        label.className = "sr-only";
-        label.textContent = `${translate("practiceStack")} · ${this.unitName()}`;
-        const stack = document.createElement("div");
-        stack.className = "seat-stack";
-        const digits = document.createElement("bdi");
-        digits.textContent = this.number(seat.hero ? view.heroStack : view.opponentStack);
-        stack.append(digits);
-        card.append(label, stack);
-        if (seat.hero && this.playing() && this.round.answers.at(-1)?.correct) {
-          const accepted = document.createElement("span");
-          accepted.className = "seat-feedback";
-          accepted.setAttribute("aria-hidden", "true");
-          accepted.innerHTML = '<svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>';
-          card.append(accepted);
-        }
-        if (!seat.hero && ["check", "call"].includes(effect.phase)) {
-          const bubble = document.createElement("div");
-          bubble.className = "seat-speech";
-          bubble.textContent = translate(effect.phase === "check" ? "practiceCheck" : "practiceCall");
-          if (effect.phase === "call") {
-            const bet = document.createElement("bdi");
-            bet.textContent = this.number(this.round.answers.at(-1).actualBet);
-            bubble.append(bet);
-          }
-          card.append(bubble);
-        }
-        if (effect.phase === "call") {
-          const wager = document.createElement("span");
-          wager.className = "wager-chips";
-          wager.setAttribute("aria-hidden", "true");
-          wager.style.setProperty("--seat-x", x);
-          wager.style.setProperty("--seat-y", y);
-          const bet = document.createElement("bdi");
-          bet.textContent = this.number(this.round.answers.at(-1).actualBet);
-          wager.append(bet);
-          wagers.push(wager);
-        }
-      } else card.setAttribute("aria-hidden", "true");
-      node.append(card);
-      if (seat.dealer) {
-        const dealer = document.createElement("span");
-        dealer.className = "seat-dealer";
-        dealer.textContent = "D";
-        dealer.setAttribute("aria-label", translate("practiceDealer"));
-        node.append(dealer);
+      const name = document.createElement("span");
+      name.className = "seat-name";
+      name.textContent = translate(hero ? "practiceHero" : "practiceOpponent");
+      const label = document.createElement("div");
+      label.className = "sr-only";
+      label.textContent = `${translate("practiceStack")}${this.unit() === "bb" ? "" : ` · ${this.unitName()}`}`;
+      const stack = document.createElement("div");
+      stack.className = "seat-stack";
+      stack.append(this.amountNode(hero ? view.heroStack : view.opponentStack));
+      card.append(name, label, stack);
+      if (hero && this.playing() && this.round.answers.at(-1)?.correct) {
+        const accepted = document.createElement("span");
+        accepted.className = "seat-feedback";
+        accepted.setAttribute("aria-hidden", "true");
+        accepted.innerHTML = '<svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>';
+        card.append(accepted);
       }
+      const speech = hero ? effect.phase === "bet" ? "bet" : null
+        : ["check", "call"].includes(effect.phase) ? effect.phase
+        : effect.phase === "hero" && view.calledBet !== null && view.seating.opponentChecks ? "check" : null;
+      if (speech) {
+        const bubble = document.createElement("div");
+        bubble.className = "seat-speech";
+        bubble.textContent = translate({ bet: "practiceBet", check: "practiceCheck", call: "practiceCall" }[speech]);
+        if (speech !== "check") bubble.append(this.amountNode(this.round.answers.at(-1).actualBet));
+        card.append(bubble);
+      }
+      if (effect.phase === "call") {
+        const wager = document.createElement("span");
+        wager.className = "wager-chips";
+        wager.setAttribute("aria-hidden", "true");
+        wager.style.setProperty("--seat-x", x);
+        wager.style.setProperty("--seat-y", y);
+        wager.append(this.amountNode(this.round.answers.at(-1).actualBet));
+        wagers.push(wager);
+      }
+      node.append(card);
       return node;
     });
     const pot = document.createElement("div");
     pot.className = "table-pot";
-    const chips = document.createElement("span");
-    chips.className = "pot-chips";
-    chips.setAttribute("aria-hidden", "true");
     const label = document.createElement("span");
     label.textContent = translate("practicePot");
     const initial = document.createElement("strong");
-    const digits = document.createElement("bdi");
-    digits.textContent = this.number(view.visiblePot);
-    initial.append(digits);
+    initial.append(this.amountNode(view.visiblePot));
     const units = document.createElement("span");
     units.className = "sr-only";
-    units.textContent = this.unitName();
-    pot.append(chips, label, initial, units);
+    units.textContent = this.unit() === "bb" ? "" : this.unitName();
+    pot.append(label, initial, units);
     if (view.visiblePot !== view.initialPot) {
       const start = document.createElement("span");
       start.className = "pot-start";
       const caption = document.createElement("span");
       caption.textContent = translate("practicePotStart");
-      const original = document.createElement("bdi");
-      original.textContent = this.number(view.initialPot);
-      start.append(caption, original);
+      start.append(caption, this.amountNode(view.initialPot));
       pot.append(start);
     }
     const center = document.createElement("div");
     center.className = "table-center";
-    const boardCount = { flop: 3, turn: 4, river: 5 }[view.street];
-    center.append(this.decorativeCards(boardCount, "community-cards"), pot);
-    table.replaceChildren(...seats, center, ...wagers);
+    center.append(pot);
+    table.replaceChildren(seats[0], center, seats[1], ...wagers);
+    fitNumbers();
     const action = $("practice-action");
     const lines = [];
+    if (this.playing() && this.round.answers.at(-1)?.correct) {
+      const accepted = document.createElement("span");
+      accepted.className = "sr-only";
+      accepted.textContent = translate("practiceCorrect");
+      lines.push(accepted);
+    }
     if (view.calledBet !== null && this.round.mode === "live" && this.round.e === 3) {
-      if (this.playing()) {
-        const accepted = document.createElement("span");
-        accepted.className = "sr-only";
-        accepted.textContent = translate("practiceCorrect");
-        lines.push(accepted);
-      }
       const flop = document.createElement("span");
       flop.className = "action-pill";
       flop.textContent = translate("flop");
@@ -1137,9 +1110,7 @@ class PracticeUI {
         chip.className = "action-pill";
         const label = document.createElement("span");
         label.textContent = translate(key);
-        const amount = document.createElement("bdi");
-        amount.textContent = this.number(view.calledBet);
-        chip.append(label, amount);
+        chip.append(label, this.amountNode(view.calledBet));
         lines.push(chip);
       }
       const history = document.createElement("p");
