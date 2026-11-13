@@ -1,4 +1,9 @@
-import { evaluate, amount, percent, sprText, fraction, RAISES } from "./core.js";
+import {
+  evaluate, amount, percent, sprText, fraction, RAISES, parseAmount, CalculationError,
+  PRACTICE_STAKES, PRACTICE_STORAGE_KEY, PracticeStore, PracticeBetDraft, practiceInputText,
+  createPracticeRound, submitPracticeBet, expirePracticeRound, practiceTarget,
+  practiceTableView, practiceShortcut, practiceDisplayValue, validatePracticeSettings, practiceActionView, PRACTICE_ACTION_MS,
+} from "./core.js";
 import { t } from "./i18n.js";
 
 const root = document.documentElement;
@@ -7,7 +12,8 @@ const fields = ["pot", "stack", "facingBet"];
 const numbers = [...document.querySelectorAll("output.number")];
 const copies = [...document.querySelectorAll("[data-copy]")];
 const separator = new Intl.NumberFormat(navigator.language).formatToParts(1.1).find((part) => part.type === "decimal")?.value ?? ".";
-const state = { language: "en", theme: "system", pot: "", stack: "", facingBet: "", tab: "postflop", submitted: { postflop: false, preflop: false } };
+const state = { language: "en", theme: "system", page: "calculator", pot: "", stack: "", facingBet: "", tab: "postflop", submitted: { postflop: false, preflop: false } };
+let practice;
 const mobile = matchMedia("(max-width: 600px), (max-width: 960px) and (max-height: 600px)");
 const reference = document.querySelector(".reference");
 const referenceMarker = document.createComment("Desktop reference");
@@ -151,6 +157,7 @@ function localize() {
   });
   renderReference();
   update();
+  practice?.localize();
 }
 
 function renderReference() {
@@ -252,6 +259,7 @@ function updateThemeColor() {
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", updateThemeColor);
 $("new-hand").addEventListener("click", newHand);
 document.addEventListener("keydown", (event) => {
+  if (state.page !== "calculator") return;
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
     if (["1", "2", "3"].includes(event.key)) { event.preventDefault(); focusField(fields[Number(event.key) - 1]); }
     if (event.code === "KeyN") { event.preventDefault(); newHand(); }
@@ -338,6 +346,11 @@ function finishEntry(kind) {
 }
 document.querySelectorAll("[data-go]").forEach((button) => button.addEventListener("click", () => finishEntry(button.dataset.go)));
 document.querySelector(".skip-link").addEventListener("click", (event) => {
+  if (state.page === "practice") {
+    event.preventDefault();
+    $("practice-heading").focus();
+    return;
+  }
   if (!mobile.matches) return;
   event.preventDefault();
   selectTab("postflop");
@@ -346,10 +359,833 @@ document.querySelector(".skip-link").addEventListener("click", (event) => {
 mobile.addEventListener("change", mobileLayout);
 new ResizeObserver(fitNumbers).observe($("calculator"));
 window.addEventListener("resize", fitNumbers);
+
+class PracticeUI {
+  constructor() {
+    this.mode = "live";
+    this.onlineUnit = "chips";
+    this.round = null;
+    this.store = new PracticeStore(null);
+    this.draft = new PracticeBetDraft("live", 2, separator);
+    this.work = Promise.resolve();
+    this.busy = 0;
+    this.ready = false;
+    this.blocked = false;
+    this.timer = null;
+    this.timerQueued = false;
+    this.fieldErrors = {};
+    this.selectedShortcut = null;
+    this.rangeObserver = new ResizeObserver(() => this.positionRangeLabels());
+    for (const id of ["practice-settings", "practice-help"]) {
+      const menu = $(id);
+      menu.addEventListener("toggle", () => {
+        if (menu.open) $(id === "practice-settings" ? "practice-help" : "practice-settings").open = false;
+      });
+      menu.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        menu.open = false;
+        menu.querySelector("summary").focus({ preventScroll: true });
+      });
+    }
+    document.addEventListener("pointerdown", (event) => {
+      for (const id of ["practice-settings", "practice-help"]) {
+        if (!$(id).contains(event.target)) $(id).open = false;
+      }
+    });
+    for (const mode of ["live", "online"]) {
+      $(`practice-${mode}`).addEventListener("click", () => this.perform(() => this.changeMode(mode)));
+    }
+    $("practice-start").addEventListener("click", () => this.perform(() => this.start()));
+    $("practice-next").addEventListener("click", () => this.perform(() => this.start()));
+    $("practice-bet").addEventListener("input", (event) => {
+      this.draft.setText(event.target.value);
+      this.selectedShortcut = null;
+      this.renderShortcuts();
+      this.fieldError("practice-bet", "");
+    });
+    $("practice-bet-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.perform(() => this.submit());
+    });
+    document.querySelectorAll("[data-practice-size]").forEach((button) => {
+      button.addEventListener("click", () => this.perform(() => {
+        if (!this.heroActing()) return;
+        if (this.expire()) return;
+        this.draft.fill(practiceShortcut(this.round, Number(button.dataset.practiceSize)));
+        this.selectedShortcut = button.dataset.practiceSize;
+        $("practice-bet").value = this.draft.text;
+        this.fieldError("practice-bet", "");
+      }));
+    });
+    for (const unit of ["chips", "bb"]) {
+      $(`practice-${unit}`).addEventListener("click", () => this.perform(() => {
+        if (this.mode !== "online") return;
+        this.expire();
+        try { this.draft.toggle(unit); }
+        catch (error) {
+          if (!(error instanceof CalculationError)) throw error;
+          this.fieldError("practice-bet", error.key);
+          return;
+        }
+        this.onlineUnit = unit;
+        $("practice-bet").value = this.draft.text;
+        if (this.fieldErrors["practice-bet"] === "practiceMaximumBet") this.fieldError("practice-bet", "practiceMaximumBet");
+      }));
+    }
+    $("practice-stake").addEventListener("change", () => {
+      $("practice-custom").hidden = $("practice-stake").value !== "custom";
+      this.fieldError("practice-settings", "");
+    });
+    $("practice-settings-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.perform(() => this.saveSettings());
+    });
+    $("practice-reset").addEventListener("click", () => {
+      if (this.playing() || !window.confirm(translate("practiceConfirmReset"))) return;
+      this.perform(() => {
+        this.useStore(() => this.store.reset(this.mode));
+        announce(translate("practiceResetDone"));
+      });
+    });
+    $("practice-repair").addEventListener("click", () => {
+      if (!window.confirm(translate("practiceConfirmRepair"))) return;
+      this.blocked = false;
+      this.perform(() => {
+        this.useStore(() => this.store.clear());
+        this.round = null;
+        this.ready = true;
+        $("practice-storage-error").hidden = true;
+        $("practice-repair").hidden = true;
+        this.renderSettings();
+        announce(translate("practiceResetDone"));
+      }, true);
+    });
+    window.addEventListener("storage", (event) => {
+      if (event.key === PRACTICE_STORAGE_KEY || event.key === null) this.perform(() => {});
+    });
+    document.addEventListener("visibilitychange", () => this.tick());
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) this.perform(() => this.abandon());
+      else this.tick();
+    });
+  }
+  useStore(operation) {
+    try { return operation(); }
+    catch (cause) { throw new Error("practiceStorageError", { cause }); }
+  }
+  perform(operation, initializing = false) {
+    this.busy++;
+    this.disableControls();
+    this.work = this.work.then(async () => {
+      if (this.blocked) return;
+      if (!navigator.locks?.request) throw new CalculationError("practiceLockError");
+      await navigator.locks.request(PRACTICE_STORAGE_KEY, () => {
+        if (!initializing) {
+          this.useStore(() => this.store.refresh());
+          if (this.playing() && this.mode === "online" && this.store.data.pending?.id !== this.round.id) {
+            this.round = { ...this.round, status: "abandoned" };
+            this.stopTimer();
+            this.draft.clear();
+            $("practice-bet").value = "";
+            announce(translate("practiceOtherTab"), true);
+          }
+        }
+        operation();
+      });
+    }).catch((error) => {
+      console.error("Practice operation failed:", error);
+      const key = error instanceof CalculationError ? error.key : "practiceStorageError";
+      const corrupt = key === "practiceStorageError" && (error.cause instanceof SyntaxError || error.cause instanceof CalculationError);
+      const message = translate(corrupt ? "practiceStorageRepair" : key);
+      if (key === "practiceStorageError" || key === "practiceLockError") {
+        this.blocked = true;
+        this.storageMessageKey = corrupt ? "practiceStorageRepair" : key;
+        this.stopTimer();
+        $("practice-storage-error").textContent = message;
+        $("practice-storage-error").hidden = false;
+        $("practice-repair").hidden = !corrupt;
+      }
+      announce(message, true);
+    }).finally(() => {
+      this.busy--;
+      this.render();
+      if (this.nextFocusRequested && this.busy === 0) {
+        this.nextFocusRequested = false;
+        if (!this.blocked && !this.playing() && state.page === "practice") $("practice-next").focus({ preventScroll: true });
+      }
+    });
+    return this.work;
+  }
+  init() {
+    this.perform(() => {
+      this.useStore(() => {
+        this.store.storage = window.localStorage;
+        if (this.store.recover()) announce(translate("practiceRecovered"), true);
+      });
+      this.ready = true;
+      this.renderSettings();
+    }, true);
+  }
+  playing() { return this.round?.status === "playing"; }
+  heroActing() { return this.playing() && practiceActionView(this.round).phase === "hero"; }
+  closeMenus() {
+    $("practice-settings").open = false;
+    $("practice-help").open = false;
+  }
+  unit() { return this.mode === "online" ? this.onlineUnit : "chips"; }
+  decimal(value) {
+    return value > 0 && value < 0.005 ? `<0${separator}01` : practiceInputText(value, separator, 2);
+  }
+  number(value) {
+    const bigBlind = this.round?.settings.bigBlind ?? this.store.data[this.mode].settings.bigBlind;
+    return this.decimal(practiceDisplayValue(value, this.unit(), bigBlind));
+  }
+  unitName() { return translate(this.unit() === "bb" ? "practiceBB" : "practiceChips"); }
+  fieldError(prefix, key) {
+    this.fieldErrors[prefix] = key;
+    const message = key ? translate(key, key === "practiceMaximumBet" ? {
+      maximum: this.number(Math.min(this.round.heroStack, this.round.opponentStack)), unit: this.unitName(),
+    } : {}) : "";
+    $(`${prefix}-error`).textContent = message;
+    $(`${prefix}-error`).hidden = !message;
+    if (prefix === "practice-bet") $("practice-bet").setAttribute("aria-invalid", String(Boolean(message)));
+    else for (const id of ["practice-small-blind", "practice-big-blind"]) $(id).setAttribute("aria-invalid", String(Boolean(message)));
+  }
+  start() {
+    if (this.playing()) return;
+    const settings = this.store.data[this.mode].settings;
+    const next = createPracticeRound({ mode: this.mode, settings, id: crypto.randomUUID() });
+    this.useStore(() => this.store.begin(next));
+    this.round = next;
+    this.closeMenus();
+    this.draft = new PracticeBetDraft(this.mode, settings.bigBlind, separator);
+    if (this.mode === "online") this.draft.toggle(this.onlineUnit);
+    $("practice-bet").value = "";
+    this.selectedShortcut = null;
+    this.fieldError("practice-bet", "");
+  }
+  submit() {
+    if (!this.playing() || this.expire()) return;
+    if (!this.heroActing()) { this.fieldError("practice-bet", "practiceWaitForAction"); return; }
+    const parsed = this.draft.value === null
+      ? this.draft.setText($("practice-bet").value) : { status: "Valid", value: this.draft.value };
+    if (parsed.status !== "Valid") {
+      this.fieldError("practice-bet", parsed.key ?? "requiredAmount");
+      return;
+    }
+    let next;
+    try { next = submitPracticeBet(this.round, parsed.value); }
+    catch (error) {
+      if (!(error instanceof CalculationError) || error.key !== "practiceMaximumBet") throw error;
+      this.fieldError("practice-bet", error.key);
+      return;
+    }
+    if (next.status === "playing") {
+      this.round = next;
+      this.draft.clear();
+      $("practice-bet").value = "";
+      this.fieldError("practice-bet", "");
+    } else {
+      this.finish(next);
+      $("practice-bet").blur();
+      this.nextFocusRequested = true;
+    }
+  }
+  finish(next) {
+    const recorded = this.useStore(() => this.store.finish(next));
+    this.round = recorded ? next : { ...next, status: "abandoned" };
+    this.stopTimer();
+    this.fieldError("practice-bet", "");
+    this.draft.clear();
+    this.selectedShortcut = null;
+    $("practice-bet").value = "";
+  }
+  expire() {
+    if (!this.round) return false;
+    const next = expirePracticeRound(this.round);
+    if (next === this.round) return false;
+    this.finish(next);
+    return true;
+  }
+  tick() {
+    if (this.round) this.renderTable();
+    if (this.heroActing() && this.fieldErrors["practice-bet"] === "practiceWaitForAction") this.fieldError("practice-bet", "");
+    this.renderTimer();
+    this.disableControls();
+    this.syncTimer();
+    if (!this.playing() || this.round.deadline === null || Date.now() < this.round.deadline || this.timerQueued || this.blocked) return;
+    this.timerQueued = true;
+    this.perform(() => this.expire()).finally(() => { this.timerQueued = false; });
+  }
+  stopTimer() { clearInterval(this.timer); this.timer = null; }
+  syncTimer() {
+    const phase = this.round ? practiceActionView(this.round).phase : "complete";
+    const needed = !this.blocked && ((this.playing() && this.mode === "online") || ["check", "call", "pause"].includes(phase));
+    if (needed && this.timer === null) this.timer = setInterval(() => this.tick(), 100);
+    else if (!needed && this.timer !== null) this.stopTimer();
+  }
+  abandon() {
+    if (!this.playing()) return;
+    if (this.mode === "online") {
+      const next = expirePracticeRound(this.round);
+      this.finish(next === this.round ? { ...this.round, status: "abandoned" } : next);
+      announce(translate("practiceAbandoned"), true);
+    }
+    this.stopTimer();
+  }
+  changeMode(mode) {
+    if (mode === this.mode) return;
+    this.abandon();
+    this.mode = mode;
+    this.closeMenus();
+    this.round = null;
+    this.draft = new PracticeBetDraft(mode, this.store.data[mode].settings.bigBlind, separator);
+    if (mode === "online") this.draft.toggle(this.onlineUnit);
+    $("practice-bet").value = "";
+    this.selectedShortcut = null;
+    this.fieldError("practice-bet", "");
+    this.fieldError("practice-settings", "");
+    this.renderSettings();
+  }
+  saveSettings() {
+    let settings;
+    if ($("practice-stake").value === "custom") {
+      const small = parseAmount($("practice-small-blind").value, separator);
+      const big = parseAmount($("practice-big-blind").value, separator);
+      try { settings = validatePracticeSettings({ smallBlind: small.value, bigBlind: big.value }); }
+      catch (error) {
+        if (!(error instanceof CalculationError)) throw error;
+        this.fieldError("practice-settings", error.key);
+        return;
+      }
+    } else {
+      const preset = PRACTICE_STAKES[this.mode][Number($("practice-stake").value)];
+      settings = { smallBlind: preset[0], bigBlind: preset[1] };
+    }
+    const previous = this.store.data[this.mode].settings;
+    if (previous.smallBlind !== settings.smallBlind || previous.bigBlind !== settings.bigBlind) {
+      this.abandon();
+      this.useStore(() => this.store.saveSettings(this.mode, settings));
+      this.round = null;
+      this.draft = new PracticeBetDraft(this.mode, settings.bigBlind, separator);
+      if (this.mode === "online") this.draft.toggle(this.onlineUnit);
+      $("practice-bet").value = "";
+    }
+    this.fieldError("practice-settings", "");
+    this.renderSettings();
+    $("practice-settings").open = false;
+    announce(translate("practiceSaved"));
+  }
+  renderSettings(preserve = false) {
+    const select = $("practice-stake");
+    const settings = this.store.data[this.mode].settings;
+    const selected = PRACTICE_STAKES[this.mode].findIndex(([small, big]) => small === settings.smallBlind && big === settings.bigBlind);
+    const value = preserve && select.options.length ? select.value : selected === -1 ? "custom" : String(selected);
+    const options = PRACTICE_STAKES[this.mode].map(([small, big], index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `${practiceInputText(small, separator)} / ${practiceInputText(big, separator)}`;
+      option.dir = "ltr";
+      return option;
+    });
+    const custom = document.createElement("option");
+    custom.value = "custom";
+    custom.textContent = translate("practiceCustom");
+    select.replaceChildren(...options, custom);
+    select.value = value;
+    if (!preserve) {
+      $("practice-small-blind").value = practiceInputText(settings.smallBlind, separator);
+      $("practice-big-blind").value = practiceInputText(settings.bigBlind, separator);
+    }
+    $("practice-custom").hidden = value !== "custom";
+  }
+  localize() {
+    document.querySelector(".page-nav").setAttribute("aria-label", `${translate("practiceCalculator")} / ${translate("practiceTitle")}`);
+    document.querySelector(".practice-mode").setAttribute("aria-label", translate("practiceMode"));
+    document.querySelector(".practice-stats").setAttribute("aria-label", translate("practiceStats"));
+    $("practice-settings").querySelector("summary").setAttribute("aria-label", translate("practiceSettings"));
+    $("practice-help").querySelector("summary").setAttribute("aria-label", translate("practiceHowTo"));
+    $("practice-units").setAttribute("aria-label", translate("practiceUnits"));
+    $("practice-shortcuts").setAttribute("aria-label", translate("practiceOnlineHint"));
+    $("practice-table").setAttribute("aria-label", translate("practiceTable"));
+    $("practice-progress").setAttribute("aria-label", translate("practiceStreets"));
+    document.querySelector(".skip-link").textContent = translate(state.page === "practice" ? "practiceHeading" : "mainJump");
+    for (const prefix of ["practice-bet", "practice-settings"]) this.fieldError(prefix, this.fieldErrors[prefix] ?? "");
+    if (this.storageMessageKey) $("practice-storage-error").textContent = translate(this.storageMessageKey);
+    this.renderSettings(true);
+    this.render();
+  }
+  disableControls() {
+    const disabled = !this.ready || this.blocked || this.busy > 0;
+    document.querySelectorAll("#practice button:not(#practice-repair), #practice select").forEach((node) => {
+      node.disabled = disabled;
+    });
+    for (const id of ["practice-bet", "practice-small-blind", "practice-big-blind"]) {
+      $(id).disabled = !this.ready || this.blocked;
+      $(id).readOnly = this.busy > 0;
+    }
+    const waiting = this.playing() && !this.heroActing();
+    $("practice-bet").readOnly = this.busy > 0 || waiting;
+    $("practice-submit").disabled = disabled || !this.heroActing();
+    $("practice-bet-form").setAttribute("aria-busy", String(waiting));
+    document.querySelectorAll("[data-practice-size]").forEach((button) => { button.disabled = disabled || !this.heroActing(); });
+    $("practice-reset").disabled = disabled || this.playing();
+    $("practice-repair").disabled = this.busy > 0;
+  }
+  render() {
+    const stats = this.store.data[this.mode].stats;
+    $("practice-played").textContent = String(stats.played);
+    $("practice-accuracy").textContent = `${stats.played ? Math.round(stats.correct / stats.played * 100) : 0}%`;
+    $("practice-streak").textContent = String(stats.current);
+    $("practice-best").textContent = String(stats.best);
+    document.querySelector(".streak-score").dataset.active = String(stats.current > 0);
+    $("practice-rules").textContent = translate(this.mode === "live" ? "practiceLiveRules" : "practiceOnlineRules");
+    for (const mode of ["live", "online"]) $(`practice-${mode}`).setAttribute("aria-pressed", String(mode === this.mode));
+    for (const unit of ["chips", "bb"]) $(`practice-${unit}`).setAttribute("aria-pressed", String(unit === this.unit()));
+    $("practice-units").hidden = this.mode !== "online";
+    const stake = this.round?.settings ?? this.store.data[this.mode].settings;
+    $("practice-current-stake").textContent = `${practiceInputText(stake.smallBlind, separator)} / ${practiceInputText(stake.bigBlind, separator)}`;
+    $("practice-current-stake").dir = "ltr";
+    $("practice-current-stake").setAttribute("aria-label", `${translate("practiceStake")}: ${$("practice-current-stake").textContent}`);
+    $("practice-stage").dataset.state = this.round?.status ?? "idle";
+    $("practice-stage").dataset.mode = this.mode;
+    const answer = this.round?.answers.at(-1);
+    const feedback = !this.blocked && answer && ["playing", "correct", "incorrect"].includes(this.round.status)
+      ? answer.correct ? "correct" : "incorrect" : "";
+    const feedbackRevision = feedback ? `${this.round.id}:${this.round.answers.length}:${feedback}` : null;
+    $("practice-stage").dataset.feedback = feedback;
+    $("practice-stage").dataset.feedbackArrival = String(feedbackRevision !== null && feedbackRevision !== this.feedbackRevision);
+    this.feedbackRevision = feedbackRevision;
+    $("practice-idle").hidden = Boolean(this.round);
+    $("practice-table").hidden = !this.round;
+    $("practice-spot").hidden = !this.round;
+    $("practice-bet").inputMode = this.mode === "live" ? "numeric" : "decimal";
+    $("practice-bet-label").textContent = `${translate("practiceBet")} · ${this.unitName()}`;
+    $("practice-input-unit").textContent = this.unitName();
+    $("practice-bet-hint").textContent = translate(this.mode === "live" ? "practiceLiveHint" : "practiceOnlineHint");
+    this.renderShortcuts();
+    $("practice-challenge").hidden = !this.round;
+    $("practice-progress").hidden = !this.round;
+    if (this.round) {
+      const round = this.round;
+      $("practice-kind").textContent = `${round.e}E`;
+      $("practice-goal").textContent = translate("practiceAllInGoal", { streets: round.e });
+      $("practice-street").textContent = `${round.e}e · ${translate(round.street)}`;
+      $("practice-street").dir = state.language === "he" ? "rtl" : "ltr";
+      $("practice-bet-form").hidden = !this.playing();
+      $("practice-result").hidden = this.playing();
+      $("practice-result-text").textContent = translate({
+        correct: "practiceCorrect", incorrect: "practiceIncorrect", timeout: "practiceTimeout", abandoned: "practiceAbandoned",
+        playing: "practiceYourTurn",
+      }[round.status]);
+      $("practice-result-text").className = ["correct", "incorrect"].includes(round.status) ? "sr-only" : "";
+      $("practice-result-text").dataset.correct = String(round.status === "correct");
+      $("practice-result").dataset.correct = String(round.status === "correct");
+      const resultRevision = this.playing() ? null : `${round.id}:${round.status}`;
+      $("practice-result").dataset.arrival = String(resultRevision !== null && resultRevision !== this.resultRevision);
+      this.resultRevision = resultRevision;
+      $("practice-result-icon").innerHTML = round.status === "correct"
+        ? '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>'
+        : round.status === "timeout"
+          ? '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 6v6l4 2"/></svg>'
+          : '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M7 17 17 7"/></svg>';
+      $("practice-result-streak").hidden = round.status !== "correct" || stats.current < 2;
+      $("practice-result-streak").textContent = `${translate("practiceStreak")} ${stats.current}`;
+      this.renderProgress();
+      this.renderTable();
+    }
+    this.renderRanges();
+    this.renderTimer();
+    this.disableControls();
+    this.syncTimer();
+  }
+  renderRanges() {
+    const container = $("practice-ranges");
+    this.rangeObserver.disconnect();
+    const round = this.round;
+    const visible = Boolean(round) && !this.playing() && !this.blocked;
+    container.hidden = !visible;
+    if (!visible) { container.replaceChildren(); return; }
+    const live = round.mode === "live";
+    const shortUnit = this.unit() === "bb" ? this.unitName() : "";
+    const answers = [...round.answers];
+    if (!answers.length || (live && round.e === 3 && answers.length === 1 && answers[0].correct)) {
+      answers.push({ ...practiceTarget(round), street: round.street, actualBet: null });
+    }
+    const ranges = answers.map((answer) => {
+      const hasBet = answer.actualBet !== null;
+      const lower = live ? answer.minimumWholeBet : answer.lower;
+      const upper = live ? answer.maximumWholeBet : answer.upper;
+      const roundedBounds = [lower, upper].map((value) => Math.round(practiceDisplayValue(value, this.unit(), round.settings.bigBlind)));
+      const rangeAmounts = roundedBounds[0] > 0 && roundedBounds[0] < roundedBounds[1]
+        ? roundedBounds.map(String) : [this.number(lower), this.number(upper)];
+      const potPercent = (value) => {
+        const percent = value / answer.pot * 100;
+        return `${percent > 0 && percent < 0.5 ? "<1" : practiceInputText(percent, separator, 0)}%`;
+      };
+      const rangePercent = `${potPercent(lower)} - ${potPercent(upper)}`;
+      const betPercent = hasBet ? potPercent(answer.actualBet) : null;
+      const idealPercent = potPercent(answer.idealBet);
+      const roundedIdeal = Math.round(practiceDisplayValue(answer.idealBet, this.unit(), round.settings.bigBlind));
+      const roundedIdealChips = this.unit() === "bb" ? roundedIdeal * round.settings.bigBlind : roundedIdeal;
+      const idealAmount = roundedIdeal > 0 && roundedIdealChips >= answer.lower && roundedIdealChips <= answer.upper
+        ? practiceInputText(roundedIdeal, separator, 0) : this.number(answer.idealBet);
+      const spr = answer.spr > 0 && answer.spr < 0.05 ? "<0.1" : practiceInputText(answer.spr, separator, 1);
+      const padding = Math.max(upper - lower, answer.pot * 0.1);
+      const minimum = Math.max(0, Math.min(lower, hasBet ? answer.actualBet : lower) - padding);
+      const maximum = Math.min(answer.effectiveStack, Math.max(upper, hasBet ? answer.actualBet : upper) + padding);
+      const start = live ? Math.floor(minimum) : minimum;
+      const end = live ? Math.ceil(maximum) : maximum;
+      const span = end - start;
+      const position = !hasBet ? "practiceNoBet" : answer.correct ? "practiceWithinRange"
+        : answer.actualBet < lower ? "practiceBelowRange" : "practiceAboveRange";
+      const article = document.createElement("article");
+      article.className = "practice-bet-range";
+      article.dataset.correct = hasBet ? String(answer.correct) : "none";
+      article.setAttribute("role", "img");
+      article.setAttribute("aria-label", translate("practiceRangeSummary", {
+        street: translate(answer.street), spr, lower: this.number(lower), upper: this.number(upper), rangePercent,
+        ideal: this.number(answer.idealBet), idealPercent, unit: this.unitName(),
+        answer: hasBet ? `${translate("practiceActual")}: ${this.number(answer.actualBet)} ${this.unitName()}, ${translate("practicePercentOfPot", { percent: betPercent })}` : translate("practiceNoBet"),
+        position: hasBet ? translate(position) : "",
+      }));
+      const heading = document.createElement("h3");
+      const street = document.createElement("span");
+      street.textContent = translate(answer.street);
+      const ratio = document.createElement("bdi");
+      ratio.className = "practice-range-spr";
+      ratio.dir = "ltr";
+      ratio.textContent = `SPR ${spr}`;
+      heading.append(street, ratio);
+      const chart = document.createElement("div");
+      chart.className = "practice-range-chart";
+      chart.setAttribute("aria-hidden", "true");
+      chart.style.setProperty("--label-lanes", hasBet ? "3" : "2");
+      chart.style.setProperty("--range-start", `${(lower - start) / span * 100}%`);
+      chart.style.setProperty("--range-width", `${(upper - lower) / span * 100}%`);
+      chart.style.setProperty("--range-center", `${((lower + upper) / 2 - start) / span * 100}%`);
+      chart.style.setProperty("--ideal-position", `${(answer.idealBet - start) / span * 100}%`);
+      for (const [kind, key, value, percentage] of [
+        ["ideal", "practiceIdeal", idealAmount, idealPercent],
+        ["actual", "practiceActual", hasBet ? this.number(answer.actualBet) : null, betPercent],
+        ["accepted", "practiceRange", `${live ? "" : "~"}${rangeAmounts.join(" - ")}`, rangePercent],
+      ]) {
+        if (kind === "actual" && !hasBet) continue;
+        const group = document.createElement("div");
+        group.className = `practice-range-${kind}`;
+        const lane = kind === "actual" ? 0 : kind === "ideal" ? Number(hasBet) : Number(hasBet) + 1;
+        group.style.setProperty("--label-lane", String(lane));
+        group.style.setProperty("--caption-gap", lane === 0 ? "14px" : "6px");
+        const caption = document.createElement("span");
+        caption.className = "practice-range-caption";
+        caption.textContent = `${translate(key)}${kind === "accepted" && shortUnit ? ` · ${shortUnit}` : ""}`;
+        const label = document.createElement("div");
+        label.className = "practice-range-value";
+        if (value !== null) {
+          const amount = document.createElement("bdi");
+          amount.className = "practice-range-amount";
+          amount.dir = "ltr";
+          amount.textContent = `${value}${shortUnit ? ` ${shortUnit}` : ""}`;
+          label.append(amount);
+        }
+        const percent = document.createElement("strong");
+        percent.className = "practice-range-percent";
+        percent.textContent = percentage;
+        label.append(percent);
+        group.append(label, caption);
+        chart.append(group);
+      }
+      const track = document.createElement("div");
+      track.className = "practice-range-track";
+      const band = document.createElement("span");
+      band.className = "practice-range-band";
+      const target = document.createElement("span");
+      target.className = "practice-range-ideal-mark";
+      track.append(band, target);
+      if (hasBet) {
+        chart.style.setProperty("--bet-position", `${(answer.actualBet - start) / span * 100}%`);
+        const marker = document.createElement("span");
+        marker.className = "practice-range-marker";
+        track.append(marker);
+      } else {
+        const missing = document.createElement("span");
+        missing.className = "practice-range-no-bet";
+        missing.textContent = translate("practiceNoBet");
+        chart.append(missing);
+      }
+      const bracket = document.createElement("div");
+      bracket.className = "practice-range-bracket";
+      const axis = document.createElement("div");
+      axis.className = "practice-range-axis";
+      axis.append(track);
+      chart.append(axis, bracket);
+      article.append(heading, chart);
+      return article;
+    });
+    container.replaceChildren(...ranges);
+    this.positionRangeLabels();
+    // Fixed-height tracks avoid resize feedback from changing label rows.
+    for (const track of container.querySelectorAll(".practice-range-track")) this.rangeObserver.observe(track);
+  }
+  positionRangeLabels() {
+    for (const chart of $("practice-ranges").querySelectorAll(".practice-range-chart")) {
+      const width = chart.clientWidth;
+      if (!width) continue;
+      const labels = [
+        ["actual", "--bet-position"], ["ideal", "--ideal-position"], ["accepted", "--range-center"],
+      ].flatMap(([kind, property]) => {
+        const group = chart.querySelector(`.practice-range-${kind}`);
+        if (!group) return [];
+        const half = Math.max(...[...group.children].map((node) => node.getBoundingClientRect().width)) / 2;
+        const anchor = parseFloat(chart.style.getPropertyValue(property)) / 100 * width;
+        const position = Math.max(half, Math.min(anchor, width - half));
+        return [{ group, position, left: position - half, right: position + half }];
+      });
+      const lanes = [];
+      // Keep the submitted bet closest to the bar; stack collisions instead of moving their anchors.
+      for (const label of labels) {
+        let lane = lanes.findIndex((others) => others.every((other) =>
+          label.left >= other.right + 12 || label.right <= other.left - 12));
+        if (lane === -1) { lane = lanes.length; lanes.push([]); }
+        lanes[lane].push(label);
+        label.group.style.setProperty("--label-position", `${label.position}px`);
+        label.group.style.setProperty("--label-lane", String(lane));
+        label.group.style.setProperty("--caption-gap", lane === 0 ? "14px" : "6px");
+      }
+      chart.style.setProperty("--label-lanes", String(lanes.length));
+    }
+  }
+  renderTimer() {
+    const node = $("practice-timer");
+    node.hidden = !this.heroActing() || this.mode !== "online" || this.blocked;
+    $("practice-clock").hidden = node.hidden;
+    $("practice-time-track").hidden = node.hidden;
+    if (!node.hidden) {
+      const remaining = Math.max(0, this.round.deadline - Date.now());
+      const seconds = Math.ceil(remaining / 1000);
+      node.textContent = String(seconds);
+      node.setAttribute("aria-label", translate("practiceTimer", { seconds }));
+      $("practice-time-fill").style.setProperty("--time-left", String(Math.min(1, remaining / 30_000)));
+      $("practice-clock").dataset.urgent = String(seconds <= 5);
+      $("practice-time-track").dataset.urgent = String(seconds <= 5);
+    }
+  }
+  renderShortcuts() {
+    $("practice-shortcuts").hidden = this.mode !== "online";
+    document.querySelectorAll("[data-practice-size]").forEach((button) => {
+      button.dataset.selected = String(button.dataset.practiceSize === this.selectedShortcut);
+    });
+  }
+  renderProgress() {
+    const start = this.round.e === 3 || this.round.street === "flop" ? 0 : 1;
+    const streets = ["flop", "turn", "river"].slice(start, start + this.round.e);
+    const steps = streets.map((street) => {
+      const step = document.createElement("li");
+      step.textContent = translate(street);
+      step.dataset.current = String(this.playing() && this.round.street === street);
+      step.dataset.complete = String(this.round.answers.some((answer) => answer.street === street && answer.correct));
+      step.setAttribute("aria-current", step.dataset.current === "true" ? "step" : "false");
+      return step;
+    });
+    $("practice-progress").replaceChildren(...steps);
+  }
+  decorativeCards(count, className) {
+    const cards = document.createElement("div");
+    cards.className = className;
+    cards.setAttribute("aria-hidden", "true");
+    for (let index = 0; index < count; index++) {
+      const back = document.createElement("span");
+      back.className = "card-back";
+      cards.append(back);
+    }
+    return cards;
+  }
+  renderTable() {
+    const view = practiceTableView(this.round);
+    const effect = practiceActionView(this.round);
+    const table = $("practice-table");
+    const revision = JSON.stringify([this.round.id, view, this.round.status, effect.phase, this.unit(), state.language]);
+    if (revision === this.tableRevision) return;
+    this.tableRevision = revision;
+    table.dataset.motion = this.tableRoundId !== this.round.id ? "deal" : this.tableStreet !== this.round.street ? "turn" : "";
+    table.dataset.playing = String(this.heroActing());
+    table.dataset.phase = effect.phase;
+    table.style.setProperty("--action-duration", `${PRACTICE_ACTION_MS}ms`);
+    table.style.setProperty("--action-delay", `${effect.startedAt === undefined ? 0 : Math.min(0, effect.startedAt - Date.now())}ms`);
+    this.tableRoundId = this.round.id;
+    this.tableStreet = this.round.street;
+    table.className = `poker-table seats-${view.seating.seats.length}`;
+    const wagers = [];
+    const seats = view.seating.seats.map((seat) => {
+      const node = document.createElement("div");
+      node.className = `poker-seat ${seat.active ? seat.hero ? "hero" : "opponent" : "inactive"}`;
+      const angle = Math.PI / 2 + seat.seat * Math.PI * 2 / view.seating.seats.length;
+      const x = `calc(50% + ${Math.cos(angle)} * var(--seat-radius))`;
+      const y = `${50 + 36 * Math.sin(angle)}%`;
+      node.style.setProperty("--seat-x", x);
+      node.style.setProperty("--seat-y", y);
+      const card = document.createElement("div");
+      card.className = "seat-card";
+      const avatar = document.createElement("div");
+      avatar.className = "seat-avatar";
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.append(this.decorativeCards(2, "hole-cards"));
+      card.append(avatar);
+      if (seat.active) {
+        const name = document.createElement("span");
+        name.className = "seat-name";
+        name.textContent = translate(seat.hero ? "practiceHero" : "practiceOpponent");
+        const position = document.createElement("bdi");
+        position.className = "seat-position";
+        position.textContent = seat.position;
+        card.append(name, position);
+        const label = document.createElement("div");
+        label.className = "sr-only";
+        label.textContent = `${translate("practiceStack")} · ${this.unitName()}`;
+        const stack = document.createElement("div");
+        stack.className = "seat-stack";
+        const digits = document.createElement("bdi");
+        digits.textContent = this.number(seat.hero ? view.heroStack : view.opponentStack);
+        stack.append(digits);
+        card.append(label, stack);
+        if (seat.hero && this.playing() && this.round.answers.at(-1)?.correct) {
+          const accepted = document.createElement("span");
+          accepted.className = "seat-feedback";
+          accepted.setAttribute("aria-hidden", "true");
+          accepted.innerHTML = '<svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>';
+          card.append(accepted);
+        }
+        if (!seat.hero && ["check", "call"].includes(effect.phase)) {
+          const bubble = document.createElement("div");
+          bubble.className = "seat-speech";
+          bubble.textContent = translate(effect.phase === "check" ? "practiceCheck" : "practiceCall");
+          if (effect.phase === "call") {
+            const bet = document.createElement("bdi");
+            bet.textContent = this.number(this.round.answers.at(-1).actualBet);
+            bubble.append(bet);
+          }
+          card.append(bubble);
+        }
+        if (effect.phase === "call") {
+          const wager = document.createElement("span");
+          wager.className = "wager-chips";
+          wager.setAttribute("aria-hidden", "true");
+          wager.style.setProperty("--seat-x", x);
+          wager.style.setProperty("--seat-y", y);
+          const bet = document.createElement("bdi");
+          bet.textContent = this.number(this.round.answers.at(-1).actualBet);
+          wager.append(bet);
+          wagers.push(wager);
+        }
+      } else card.setAttribute("aria-hidden", "true");
+      node.append(card);
+      if (seat.dealer) {
+        const dealer = document.createElement("span");
+        dealer.className = "seat-dealer";
+        dealer.textContent = "D";
+        dealer.setAttribute("aria-label", translate("practiceDealer"));
+        node.append(dealer);
+      }
+      return node;
+    });
+    const pot = document.createElement("div");
+    pot.className = "table-pot";
+    const chips = document.createElement("span");
+    chips.className = "pot-chips";
+    chips.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = translate("practicePot");
+    const initial = document.createElement("strong");
+    const digits = document.createElement("bdi");
+    digits.textContent = this.number(view.visiblePot);
+    initial.append(digits);
+    const units = document.createElement("span");
+    units.className = "sr-only";
+    units.textContent = this.unitName();
+    pot.append(chips, label, initial, units);
+    if (view.visiblePot !== view.initialPot) {
+      const start = document.createElement("span");
+      start.className = "pot-start";
+      const caption = document.createElement("span");
+      caption.textContent = translate("practicePotStart");
+      const original = document.createElement("bdi");
+      original.textContent = this.number(view.initialPot);
+      start.append(caption, original);
+      pot.append(start);
+    }
+    const center = document.createElement("div");
+    center.className = "table-center";
+    const boardCount = { flop: 3, turn: 4, river: 5 }[view.street];
+    center.append(this.decorativeCards(boardCount, "community-cards"), pot);
+    table.replaceChildren(...seats, center, ...wagers);
+    const action = $("practice-action");
+    const lines = [];
+    if (view.calledBet !== null && this.round.mode === "live" && this.round.e === 3) {
+      if (this.playing()) {
+        const accepted = document.createElement("span");
+        accepted.className = "sr-only";
+        accepted.textContent = translate("practiceCorrect");
+        lines.push(accepted);
+      }
+      const flop = document.createElement("span");
+      flop.className = "action-pill";
+      flop.textContent = translate("flop");
+      lines.push(flop);
+      for (const key of ["practiceBet", "practiceCall"]) {
+        const chip = document.createElement("span");
+        chip.className = "action-pill";
+        const label = document.createElement("span");
+        label.textContent = translate(key);
+        const amount = document.createElement("bdi");
+        amount.textContent = this.number(view.calledBet);
+        chip.append(label, amount);
+        lines.push(chip);
+      }
+      const history = document.createElement("p");
+      history.className = "sr-only";
+      history.textContent = translate("practiceFlopAction", { bet: this.number(view.calledBet) });
+      lines.push(history);
+    }
+    if (this.heroActing()) {
+      const next = document.createElement("span");
+      next.className = "turn-prompt";
+      next.textContent = translate("practiceYourTurn");
+      lines.push(next);
+    }
+    if (effect.phase === "check" || effect.phase === "call") {
+      const narration = document.createElement("span");
+      narration.className = "sr-only";
+      narration.textContent = translate(effect.phase === "check" ? "practiceChecked" : "practiceOpponentCalls",
+        { bet: effect.phase === "call" ? this.number(this.round.answers.at(-1).actualBet) : "" });
+      lines.push(narration);
+    }
+    action.replaceChildren(...lines);
+  }
+}
+
+function selectPage(page) {
+  state.page = page;
+  $("calculator").hidden = page !== "calculator";
+  $("calculator-tabs").hidden = page !== "calculator";
+  $("practice").hidden = page !== "practice";
+  $("new-hand").hidden = page !== "calculator";
+  $("mobile-help").hidden = page !== "calculator";
+  for (const kind of ["calculator", "practice"]) $(`nav-${kind}`).setAttribute("aria-pressed", String(kind === page));
+  const skip = document.querySelector(".skip-link");
+  skip.href = page === "practice" ? "#practice-heading" : "#pot";
+  skip.textContent = translate(page === "practice" ? "practiceHeading" : "mainJump");
+  practice.tick();
+  if (page !== "practice") practice.closeMenus();
+  fitNumbers();
+}
+for (const page of ["calculator", "practice"]) $(`nav-${page}`).addEventListener("click", () => selectPage(page));
 try {
+  practice = new PracticeUI();
   mobileLayout();
   localize();
   updateThemeColor();
+  practice.init();
   $("startup").hidden = true;
   root.dataset.ready = "true";
 } catch (error) {

@@ -46,10 +46,16 @@
       </button>
     </div>
   </header>
-  <nav class="mobile-tabs mobile-only" role="tablist" aria-label="Calculators">
+  <div class="navigation">
+  <nav class="page-nav" aria-label="Calculator and practice">
+    <button id="nav-calculator" type="button" aria-controls="calculator" aria-pressed="true" data-t="practiceCalculator">Calculator</button>
+    <button id="nav-practice" type="button" aria-controls="practice" aria-pressed="false" data-t="practiceTitle">Practice</button>
+  </nav>
+  <nav id="calculator-tabs" class="mobile-tabs mobile-only" role="tablist" aria-label="Calculators">
     <button id="tab-postflop" type="button" role="tab" aria-controls="postflop-panel" aria-selected="true" tabindex="0" dir="ltr">2e / 3e</button>
     <button id="tab-preflop" type="button" role="tab" aria-controls="preflop" aria-selected="false" tabindex="-1" dir="ltr">3-bet / 4-bet</button>
   </nav>
+  </div>
   <main id="calculator">
     <div class="calculator-grid">
       <section id="postflop-panel" class="panel postflop" aria-labelledby="postflop-heading">
@@ -131,6 +137,115 @@
       <nav aria-label="About"><button id="assumptions-open" type="button" data-t="assumptions">Assumptions</button><a id="github" href="https://github.com/MagalHoresh/PokerSPRCalculator" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 19c-4 1-4-2-6-2m12 4v-4a3.5 3.5 0 0 0-1-2.7c3.3-.4 6.8-1.6 6.8-7.3a5.7 5.7 0 0 0-1.6-4A5.3 5.3 0 0 0 19.1-1S17.8-1.4 15 1a14 14 0 0 0-6 0C6.2-1.4 4.9-1 4.9-1a5.3 5.3 0 0 0-.1 4A5.7 5.7 0 0 0 3.2 7c0 5.7 3.5 6.9 6.8 7.3A3.5 3.5 0 0 0 9 17v4" transform="translate(0 2) scale(.92)"/></svg><span>GitHub</span></a></nav>
     </footer>
     <p class="privacy-note" data-t="privacy">No accounts, tracking or game integration.</p>
+  </main>
+  <main id="practice" hidden aria-labelledby="practice-heading">
+    <section class="panel practice-panel">
+      <div class="practice-heading">
+        <h1 id="practice-heading" tabindex="-1" data-t="practiceHeading">SPR practice</h1>
+        <div class="practice-mode" role="group" aria-label="Practice mode">
+          <button id="practice-live" type="button" aria-pressed="true" data-t="practiceLive">Live</button>
+          <button id="practice-online" type="button" aria-pressed="false" data-t="practiceOnline">Online</button>
+        </div>
+        <div class="practice-tools">
+          <details id="practice-help" class="practice-menu">
+            <summary aria-label="How to play"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8a2 2 0 0 1 4 0c0 2-2 2-2 4m0 4v.1"/></svg><span class="sr-only" data-t="practiceHowTo">How to play</span></summary>
+            <div class="practice-menu-content">
+              <h2 data-t="practiceHowTo">How to play</h2>
+              <ul class="practice-help-list">
+                <li data-t="practiceGoal">Find the smaller stack. Bet to reach a river all-in.</li>
+                <li id="practice-rules"></li>
+                <li data-t="practiceTolerance">Sizing tolerance: ±5 percentage points of pot.</li>
+              </ul>
+              <p class="practice-note" data-t="practiceAssumptions">One matching call per street. No raises or rake.</p>
+            </div>
+          </details>
+          <details id="practice-settings" class="practice-menu">
+            <summary aria-label="Settings"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m10 3-1 3-3 1-2-1-2 4 2 2v3l-2 2 2 4 3-1 2 1 1 3h4l1-3 2-1 3 1 2-4-2-2v-3l2-2-2-4-3 1-2-1-1-3Z" transform="translate(1 -1) scale(.92)"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only" data-t="practiceSettings">Settings</span></summary>
+            <div class="practice-menu-content">
+              <h2 data-t="practiceSettings">Settings</h2>
+              <form id="practice-settings-form" novalidate>
+                <div class="practice-settings-grid">
+                  <label class="amount-field"><span data-t="practiceStake">Fixed stake</span><select id="practice-stake"></select></label>
+                  <div id="practice-custom" class="practice-custom" hidden>
+                    <label class="amount-field"><span data-t="practiceSmallBlind">Small blind</span><input id="practice-small-blind" type="text" inputmode="decimal" dir="ltr" autocomplete="off" maxlength="128" aria-describedby="practice-settings-error"></label>
+                    <label class="amount-field"><span data-t="practiceBigBlind">Big blind</span><input id="practice-big-blind" type="text" inputmode="decimal" dir="ltr" autocomplete="off" maxlength="128" aria-describedby="practice-settings-error"></label>
+                  </div>
+                  <button class="practice-button" type="submit" data-t="practiceSave">Save stake</button>
+                </div>
+                <p class="practice-note" data-t="practiceSettingsNote">Changes apply to the next spot.</p>
+                <p id="practice-settings-error" class="field-error" role="alert" hidden></p>
+              </form>
+              <div class="practice-record"><span data-t="practiceBest">Best streak</span><strong id="practice-best" dir="ltr">0</strong></div>
+              <button id="practice-reset" class="practice-secondary" type="button" data-t="practiceReset">Reset stats</button>
+              <p class="practice-note practice-privacy" data-t="practicePrivacy">Saved on this device only.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+      <p id="practice-storage-error" class="field-error" role="alert" hidden></p>
+      <button id="practice-repair" class="practice-secondary" type="button" data-t="practiceResetData" hidden>Reset saved practice data</button>
+      <div class="practice-hud">
+        <div class="practice-stats" aria-label="Practice statistics">
+          <div><span data-t="practicePlayed">Played</span><strong id="practice-played" dir="ltr">0</strong></div>
+          <div><span data-t="practiceAccuracy">Accuracy</span><strong id="practice-accuracy" dir="ltr">0%</strong></div>
+          <div class="streak-score"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M13 3c1 5-3 6-3 9-1-1-1-3-1-4-4 4-6 9-2 12 3 2 8 1 10-2 3-5-1-9-4-15Z"/></svg><span data-t="practiceStreak">Streak</span></span><strong id="practice-streak" dir="ltr">0</strong></div>
+        </div>
+        <div id="practice-units" role="group" aria-label="Display units" hidden>
+          <button id="practice-chips" type="button" aria-pressed="true" data-t="practiceChips">Chips</button>
+          <button id="practice-bb" type="button" aria-pressed="false" data-t="practiceBB">BB</button>
+        </div>
+      </div>
+      <div id="practice-stage" class="practice-stage" data-state="idle">
+        <div class="practice-stage-top">
+          <span id="practice-current-stake"></span>
+          <div id="practice-clock" class="practice-clock" hidden>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6m-3 0v3"/></svg>
+            <span id="practice-timer" role="timer" aria-live="off" hidden></span>
+          </div>
+        </div>
+        <div id="practice-challenge" class="practice-challenge" hidden>
+          <strong id="practice-kind" dir="ltr"></strong>
+          <span id="practice-goal"></span>
+        </div>
+        <strong id="practice-street" class="sr-only"></strong>
+        <ol id="practice-progress" class="practice-progress" aria-label="Streets" hidden></ol>
+        <div id="practice-time-track" class="practice-time-track" aria-hidden="true" hidden><span id="practice-time-fill"></span></div>
+        <div id="practice-idle" class="practice-idle">
+          <div class="practice-attract" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="practice-lobby">
+            <div class="practice-chip-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 4 7 8-7 8-7-8Z"/></svg></div>
+            <h2 data-t="practiceIntro">Find your bet.</h2>
+            <button id="practice-start" class="practice-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 10 7-10 7Z"/></svg><span data-t="practiceStart">Play</span></button>
+          </div>
+        </div>
+        <div id="practice-table" class="poker-table" aria-label="Poker table"></div>
+      </div>
+      <div id="practice-spot" hidden>
+        <div id="practice-action" class="practice-action" aria-live="polite" aria-atomic="true"></div>
+        <form id="practice-bet-form" class="practice-bet-form" novalidate>
+          <label class="practice-bet-field" for="practice-bet"><span id="practice-bet-label" class="sr-only"></span><input id="practice-bet" type="text" inputmode="numeric" enterkeyhint="done" dir="ltr" placeholder="0" autocomplete="off" maxlength="128" aria-describedby="practice-goal practice-street practice-bet-hint practice-bet-error"><span id="practice-input-unit" aria-hidden="true"></span></label>
+          <button id="practice-submit" class="practice-button" type="submit"><span data-t="practiceBet">Bet</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button>
+          <div id="practice-shortcuts" role="group" aria-label="Fill bet as a percentage of pot" hidden>
+            <button type="button" data-practice-size="0.33" dir="ltr">33%</button>
+            <button type="button" data-practice-size="0.66" dir="ltr">66%</button>
+            <button type="button" data-practice-size="1" dir="ltr">100%</button>
+          </div>
+          <p id="practice-bet-hint" class="sr-only"></p>
+          <p id="practice-bet-error" class="field-error" role="alert" hidden></p>
+        </form>
+        <div id="practice-result" class="practice-result" hidden>
+          <div class="practice-result-summary">
+            <span id="practice-result-icon" aria-hidden="true"></span>
+            <p id="practice-result-text" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+            <span id="practice-result-streak" hidden></span>
+          </div>
+          <div id="practice-ranges" class="practice-ranges" hidden></div>
+          <div class="practice-result-actions">
+            <button id="practice-next" class="practice-button" type="button"><span data-t="practiceNext">Next spot</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
   <div id="feedback" class="feedback" role="status" aria-live="polite" aria-atomic="true"></div>
   <dialog id="assumptions-dialog" aria-labelledby="assumptions-title">

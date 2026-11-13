@@ -2,10 +2,11 @@
 
 **Web app:** [poker-spr-calculator.magalhoresh.com](https://poker-spr-calculator.magalhoresh.com/)
 
-A fast-glance poker arithmetic calculator for desktop and mobile: current pot,
-effective stack, live SPR, complete two/three-street paths to all-in, and all four
-preflop raise-to targets. **English / Hebrew** and **System / Light / Dark**
-controls are always available. The source repository is public:
+A fast-glance poker calculator and interactive **SPR practice trainer** for desktop
+and mobile. **Calculator / Practice** navigation combines pot/effective-stack
+arithmetic, complete two/three-street paths to all-in, four preflop raise-to
+targets, and table-based **Live / Online** practice. **English / Hebrew** and
+**System / Light / Dark** controls are always available. The source repository is public:
 [`MagalHoresh/PokerSPRCalculator`](https://github.com/MagalHoresh/PokerSPRCalculator).
 Anyone can read the code without signing in. Calculations remain private on
 your device.
@@ -18,6 +19,8 @@ game integration or sending/storing hand inputs. The page loads static assets
 over HTTPS; arithmetic works without further network requests once loaded.
 The language resets to English on each page load. Theme/language choices are
 tab-local, and clearing a hand preserves those choices.
+Practice saves only local settings, per-mode statistics, and an unfinished Online
+round's ID/deadline. Hands and typed bets are not saved or sent anywhere.
 
 On mobile, the default **2e / 3e** tab shows pot, effective stack, SPR and both
 complete paths, with the bets side by side. The **3-bet / 4-bet** tab shows all
@@ -27,8 +30,30 @@ when the keyboard is closed; help, the SPR reference and GitHub are under **?**.
 **Go**, or Enter in the final input, deliberately finishes editing and dismisses
 the keyboard; calculations still update instantly while typing. No autofocus
 opens the keyboard. Desktop keeps all calculators together without tabs or Go.
-Numbers and copied values use one decimal place, and the full-precision math
+Calculator numbers and copied values use one decimal place, and the full-precision math
 matches the native applications.
+
+## SPR practice on the web
+
+Practice on a graphical nine-seat **Live** or six-seat **Online** table. Identify
+the smaller remaining stack and calculate your own bet; SPR and target sizing
+stay hidden until the round ends. Randomized **2E / 3E** spots use the same
+full-precision geometric math as the calculator.
+
+- **Live:** whole-number bets, no timer or percentage shortcuts. Three-street
+  rounds ask for a flop bet and a turn bet, using the actual matching call to
+  update the pot and both stacks. Animated Call / Check cues show action order.
+- **Online:** 30 seconds per round, decimal bets, fill-only 33% / 66% / 100%
+  shortcuts, and lossless Chips / BB switching. Switching back to Calculator
+  does not pause the clock; unfinished abandoned rounds count as incorrect.
+- **Feedback:** compact result bars show your bet, correct sizing, accepted range,
+  pot percentages and SPR. Grading accepts +/-5 percentage points of pot.
+- **Progress:** endless manual-next rounds, played/accuracy/current/best-streak
+  statistics, separate saved stakes per mode, and Reset stats.
+
+Everything remains local-only, without accounts, a backend, tracking or poker-site
+integration. Calculator behavior and native applications are preserved.
+See the [practice rules and privacy details](web/README.md#spr-practice).
 
 ## Web development
 

@@ -26,10 +26,135 @@ HTTPS site keeps both directives and is checked separately.
 
 The page uses browser number-format preferences for its decimal separator.
 English is the initial interface language on every load, independently of that
-number format. Inputs and results are not placed in URLs, storage or cookies.
+number format. Calculator inputs/results and practice bet inputs are never
+placed in URLs, storage or cookies. Practice alone saves settings, aggregate
+statistics and an unfinished Online round's ID/deadline in local storage.
 Theme and language are tab-local; New hand preserves them. Clipboard access is
 requested only on an explicit copy click; if denied, the full amount is selected
 and instructions explain manual copying instead of silently reporting success.
+
+## SPR practice
+
+**Calculator / Practice** navigation preserves calculator inputs. Practice has
+independent **Live / Online** settings and stats, with no backend, accounts,
+analytics or game integration. Decorative card backs have no ranks, suits or
+effect on the arithmetic. Mobile uses the existing calculator-tab
+row for navigation; Practice itself scrolls naturally.
+
+Practice opens as a table-first game: **Play**, a compact played/accuracy/streak
+HUD, and a large bet field/button. The active hero seat, street track, short
+bet/call badges and visual results replace instruction paragraphs in the play
+area. Online adds a numeric countdown and draining clock bar; Live shows neither.
+**?** opens the rules. The settings icon holds fixed stakes, best streak and
+Reset stats. Menus do not pause the clock. Correct bets pulse the table and show
+a green check; incorrect bets shake the table and show a red cross, without
+wordy result banners. Live's accepted flop gets a check without revealing the
+solution or counting a completed round. Screen readers receive explicit localized
+correct/incorrect labels. Brief effects respect reduced motion; symbols remain
+visible without animation or color. Decorative chips are not interactive controls.
+Final results use compact bars instead of an Explain button or text breakdown.
+Each street shows its SPR separately from an annotated bar. Correct sizing is
+aligned with its target tick. Submitted amounts sit directly above their diamond,
+with **Your bet** below and matching marker colors. Accepted-range amounts center
+on the green band, retaining **Accepted range** and its green bracket below.
+Each amount has its plain percentage on a separate line. Resize-aware placement
+measures the actual labels and staggers collisions vertically instead of spreading
+labels sideways or drawing diagonal lines. The submitted bet stays closest to
+the bar; only labels at chart edges are shifted inward to avoid overflow.
+Feedback does not repeat "Chips" or "of pot." Online BB units remain explicit.
+Correct-bet amounts round to whole numbers when that still gives an accepted bet;
+otherwise fractional amounts stay
+precise. Screen readers receive a complete localized description, including units
+and percentage-of-pot context.
+Bars use the recorded full-precision answer (whole legal bounds in Live), adapt
+their scale to include both the range and the bet, and follow the Online Chips /
+BB toggle without changing SPR or percentages. Visible accepted-range amounts
+and pot percentages use whole numbers; fractional ranges retain decimals if
+rounding would collapse them or display a positive lower bound as zero.
+Online amounts remain marked approximate, and positive percentages below 0.5%
+show as **<1%**. Displayed SPR uses at most one decimal (3 stays 3; 4.24 becomes
+4.2); positive values below 0.05 show as **<0.1**, not zero. Grading, bar geometry and
+the underlying SPR calculation retain full precision.
+Timeouts show the target without
+inventing a bet marker. No range or solution appears between Live answers.
+Large **2E / 3E** badges show only **2 / 3 streets to all-in** underneath,
+without answer counters. Each seat has two decorative card backs; the community board shows
+three on the flop and four on the turn. Cards are non-interactive and hidden
+from assistive technology; street labels carry the actual game state.
+
+Each **2e** spot starts on the turn, or sometimes on the flop when hero is out
+of position. A flop **2e** ends all-in on the turn; a turn **2e** ends on the
+river. **3e** starts on the flop and ends on the river. The street track,
+grading and result bars follow the selected plan, not just the current street.
+Hero remains physically at the bottom of a nine-seat Live / six-seat Online
+table, with poker positions, dealer and opponent check consistent with clockwise
+seat order. Only hero/opponent participate. Their stacks usually differ; find
+the smaller stack yourself. No effective stack, SPR or target sizing is revealed
+while a round is active. Final range bars show the correct sizing, your bet and
+the accepted range directly. Display values are rounded (Online ranges marked
+approximate); grading stays full precision.
+
+Live accepts positive whole-number bets only, with no timer, percentage
+shortcuts, BB display or chip controls. Live **5/10** automatically uses a
+smallest chip of **5** (also for custom blinds set to 5/10): generated starting
+pots and both stacks are multiples of 5. Bets may still be any positive whole
+number. Calls use the exact submitted bet, so updated amounts need not remain
+multiples of 5. Other Live stakes retain whole-chip starting amounts.
+Geometric targets and grading stay unrounded.
+Live 3e asks for a flop bet and a turn
+bet: the opponent matches the actual accepted flop amount, both stacks decrease
+by that amount, and the updated turn pot is shown in the middle, with the original
+pot retained below it. The correct turn bet is recomputed
+from those remaining stacks and the actual called pot over two remaining streets.
+Other rounds require one answer. The final turn/river shove is never another answer.
+Wrong sizing ends the round immediately; Live 3e records one successful round
+only after both answers succeed. Opponent actions use brief comic-style Check /
+Call bubbles; matching bets animate chips from both players into the pot.
+An in-position hero waits for the opponent's check, including on the turn after
+a flop call, with a one-second pause between the call and check effects.
+The bet field stays enabled but read-only until action reaches hero,
+without reopening the keyboard or adding an extra action.
+An amount above either remaining stack shows **Maximum bet** beside the input
+and keeps the round open for correction, without grading an answer. Online time
+continues to run during validation.
+An explicit final bet moves keyboard focus to Next spot; an offscreen timeout
+never moves focus away from the calculator.
+
+Online allows decimals, fill-only **33% / 66% / 100%** buttons, and **Chips / BB**
+conversion that retains the exact underlying draft and deadline.
+Table amounts and automatically filled/converted bets show at most two decimal
+places, without changing the underlying amount used for grading. Custom blind
+settings and manually typed inputs retain their entered precision.
+**Play / Next spot** schedules the opponent's action and fixes the deadline:
+30 seconds from when action reaches hero, not from when animations finish rendering.
+The countdown appears only on hero's turn and continues on hidden tabs or in
+Calculator. Unit/language changes resume effects without replaying them or
+resetting the deadline. No countdown runs during feedback. Switching modes, saving
+different blinds, reloading or leaving the page abandons an unfinished Online
+round as incorrect; Calculator navigation alone does not abandon it. Manual
+Next spot is required. Only one Online round can be active per origin: another
+page opening or starting practice settles the previous unfinished marker.
+
+Grading uses the existing full-precision geometric formula and an inclusive
+range of **ideal bet +/- 5 percentage points of pot**, capped at the smaller
+remaining stack. For example, 50% accepts 45%-55%, not 47.5%-52.5%.
+Generated amounts include small/standard bets and occasional overbets with
+targets no greater than 150%; every generated spot permits an acceptable input
+in both Online units or whole Live amounts.
+
+Each mode saves one fixed preset/custom stake. Live presets: **1/2, 2/5, 5/10**.
+Online: **0.05/0.10, 0.25/0.50, 0.50/1, 1/2**. Custom blinds must satisfy
+`0.001 <= smallBlind < bigBlind <= 1000000`. Units are currency-neutral.
+Rounds played, accuracy, current streak and best streak persist per mode.
+**Reset stats** is available between rounds and preserves that mode's stake.
+
+The `poker-spr-practice-v1` storage record atomically commits results and the
+unfinished-round journal. Web Locks serialize cross-tab read/modify/write
+operations; modern HTTPS/localhost browsers are required for saved practice.
+Reload recovery and stale-round ID checks prevent duplicate scoring or timer
+resets. Storage failures visibly pause practice instead of reporting an unsaved
+success; invalid saved data offers a confirmed, practice-only reset.
+Calculator arithmetic is still available when practice storage is unavailable.
 
 ## Responsive and accessibility behavior
 
@@ -97,6 +222,14 @@ The pure-core Node tests compare directly against the current Swift-generated
 native fixture: 196 hands and their complete called-pot recurrence, 104 parsing
 cases, 20 formatting cases, plus malformed/zero/tiny/huge/nonfinite and independent
 invalidation tests. The 40% example remains `100 / 241.6 → 40.0, 72.0, 129.6`.
+Practice tests additionally exercise inclusive tolerance boundaries, unequal
+stacks, legal/whole amounts, thousands of generated fixed-stake spots, actual
+Live flop calls and recalculated turns, hidden-pot view models, lossless unit
+drafts, wall-clock timeouts, once-only journaling, persistence failures and stats.
+Node controller tests use minimal DOM ports (not a browser) for real navigation,
+form, units, feedback, storage-error and recovery wiring. Catalog checks cover
+English/Hebrew keys, placeholders and DOM associations. The Practice page's
+visual layout and assistive-technology behavior have not been browser-validated.
 
 ```sh
 cd web
@@ -104,7 +237,8 @@ npx playwright install chromium webkit
 npm run test:ui
 ```
 
-Approved Playwright checks are scoped to this app. Chromium and WebKit cover
+The existing calculator Playwright checks are scoped to this app; running them
+requires explicit browser-automation approval. Chromium and WebKit cover
 320/360/375/390/430px mobile widths, 844px landscape, 1280/1440px desktop, touch
 emulation, reduced-height/keyboard-like viewport changes, 200%-equivalent layout,
 English/Hebrew live switching, actual input/copy/reset flow, invalidation, both
