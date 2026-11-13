@@ -38,8 +38,13 @@ and instructions explain manual copying instead of silently reporting success.
 **Calculator / Practice** navigation preserves calculator inputs. Practice has
 independent **Live / Online** settings and stats, with no backend, accounts,
 analytics or game integration. Decorative card backs have no ranks, suits or
-effect on the arithmetic. Mobile uses the existing calculator-tab
-row for navigation; Practice itself scrolls naturally.
+effect on the arithmetic. Mobile Practice combines page navigation and appearance/
+language controls into one compact row, and sizes the table to the available
+viewport. Finished-round feedback takes the table's place rather than extending
+the page; both Live street-result bars stay visible side by side. Normal portrait
+play and feedback fit one screen at the default stakes, with 44px touch targets.
+Scrolling remains available for the software keyboard, zoom and constrained views.
+Calculator spacing is unchanged.
 
 Practice opens as a table-first game: **Play**, a compact played/accuracy/streak
 HUD, and a large bet field/button. The active hero seat, street track, short
@@ -142,7 +147,9 @@ Generated amounts include small/standard bets and occasional overbets with
 targets no greater than 150%; every generated spot permits an acceptable input
 in both Online units or whole Live amounts.
 
-Each mode saves one fixed preset/custom stake. Live presets: **1/2, 2/5, 5/10**.
+Each mode saves one fixed preset/custom stake. New or cleared profiles default
+to **Live 5/10** and **Online 1/2**; existing saved selections are preserved.
+Live presets: **1/2, 2/5, 5/10**.
 Online: **0.05/0.10, 0.25/0.50, 0.50/1, 1/2**. Custom blinds must satisfy
 `0.001 <= smallBlind < bigBlind <= 1000000`. Units are currency-neutral.
 Rounds played, accuracy, current streak and best streak persist per mode.
@@ -205,7 +212,7 @@ Calculator arithmetic is still available when practice storage is unavailable.
   it is not trapped into a three-field loop.
 - Native keep-on-top and OS menu-bar commands have no browser equivalent.
   Browsers/platform fonts can differ visually without changing calculation rules.
-- Mobile reserves a blank buffer below the existing top safe-area inset,
+- Mobile Calculator reserves a blank buffer below the existing top safe-area inset,
   independent of whether a saved shortcut reports standalone display mode:
   48px on portrait viewports at least 700px tall, 32px at 550–699px and 16px
   at 500–549px. This moves all content, including the language control, lower.
@@ -228,8 +235,14 @@ Live flop calls and recalculated turns, hidden-pot view models, lossless unit
 drafts, wall-clock timeouts, once-only journaling, persistence failures and stats.
 Node controller tests use minimal DOM ports (not a browser) for real navigation,
 form, units, feedback, storage-error and recovery wiring. Catalog checks cover
-English/Hebrew keys, placeholders and DOM associations. The Practice page's
-visual layout and assistive-technology behavior have not been browser-validated.
+English/Hebrew keys, placeholders and DOM associations. Local Chromium/WebKit
+Practice checks measure real viewport and element bounds from 320x518 through
+430x932, including both languages, active rounds, the Live continuation, one/two
+result bars, Online BB feedback, timeout and Next. They check readable,
+nonoverlapping labels/stacks, 44px controls, every opponent seat on short screens,
+simulated notch insets and scrollable keyboard/zoom fallbacks. Calculator header
+checks retain its original spacing. Native mobile keyboards, physical-device
+safe areas and screen-reader behavior still require manual device verification.
 
 ```sh
 cd web

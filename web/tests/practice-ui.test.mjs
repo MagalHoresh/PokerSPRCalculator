@@ -223,7 +223,7 @@ test("game opens at the table with Play; starts do not leave help/settings in th
   assert.equal(h.nodes.get("practice-idle").hidden, false);
   assert.equal(h.nodes.get("practice-table").hidden, true);
   assert.equal(h.nodes.get("practice-spot").hidden, true);
-  assert.equal(h.nodes.get("practice-current-stake").textContent, "1 / 2");
+  assert.equal(h.nodes.get("practice-current-stake").textContent, "5 / 10");
   h.nodes.get("practice-settings").open = true;
   h.nodes.get("practice-help").open = true;
   await h.run(() => h.ui.start());
@@ -499,7 +499,7 @@ test("over-stack validation does not pause Online time and the maximum follows d
   assert.equal(h.nodes.get("practice-bet-error").textContent, "Maximum bet: 150 Chips");
   h.nodes.get("practice-bb").listeners.click();
   await h.ui.work;
-  assert.equal(h.nodes.get("practice-bet-error").textContent, "Maximum bet: 1500 BB");
+  assert.equal(h.nodes.get("practice-bet-error").textContent, "Maximum bet: 75 BB");
   assert.equal(h.ui.round.deadline, deadline);
   await h.advance(deadline);
   assert.equal(h.ui.round.status, "timeout");
@@ -988,7 +988,7 @@ test("result bars place low, accepted boundary and high bets against the graded 
     await h.ui.work;
     const converted = container.children[0];
     assert.deepEqual(findClass(converted, "practice-range-chart").style.values, geometry);
-    assert.equal(displayedRange(converted), "~450 - 550 BB");
+    assert.equal(displayedRange(converted), "~23 - 28 BB");
     assert.ok(rangeLabels(converted)[0].textContent.includes("BB"));
     assert.ok(converted.attributes["aria-label"].includes("BB"));
     assert.equal(findClass(converted, "practice-range-spr").textContent, spr);
@@ -1038,7 +1038,7 @@ test("result ranges and percentages stay whole while SPR shows one decimal, with
     await h.ui.work;
     const converted = container.children[0];
     const convertedLabels = rangeLabels(converted);
-    assert.equal(displayedRange(converted), "~113 - 149 BB");
+    assert.equal(displayedRange(converted), "~6 - 7 BB");
     assert.deepEqual(convertedLabels.map((label) => findClass(label, "practice-range-percent").textContent), percentages);
     assert.deepEqual(findClass(converted, "practice-range-chart").style.values, geometry);
     assert.equal(findClass(converted, "practice-range-spr").textContent, "SPR 2.1");

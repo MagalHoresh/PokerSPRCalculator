@@ -16,12 +16,34 @@ const spot = (changes = {}) => ({
 });
 const memoryStorage = () => {
   const values = new Map();
-  return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
 };
 const seeded = (seed) => () => {
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
   return seed / 2 ** 32;
 };
+
+test("new and cleared practice profiles default to Live 5/10 and Online 1/2 without replacing saved stakes", () => {
+  const storage = memoryStorage();
+  const store = new PracticeStore(storage);
+  for (const data of [store.data, store.refresh()]) {
+    assert.deepEqual(data.live.settings, { smallBlind: 5, bigBlind: 10 });
+    assert.deepEqual(data.online.settings, { smallBlind: 1, bigBlind: 2 });
+  }
+  store.saveSettings("live", { smallBlind: 1, bigBlind: 2 });
+  store.saveSettings("online", { smallBlind: 0.05, bigBlind: 0.1 });
+  const loaded = new PracticeStore(storage);
+  loaded.refresh();
+  assert.deepEqual(loaded.data.live.settings, { smallBlind: 1, bigBlind: 2 });
+  assert.deepEqual(loaded.data.online.settings, { smallBlind: 0.05, bigBlind: 0.1 });
+  loaded.clear();
+  assert.deepEqual(loaded.refresh().live.settings, { smallBlind: 5, bigBlind: 10 });
+  assert.deepEqual(loaded.data.online.settings, { smallBlind: 1, bigBlind: 2 });
+});
 
 test("effective stack is the smaller player, independent of hero and seating", () => {
   near(practiceTarget(spot()).idealBet, 50);

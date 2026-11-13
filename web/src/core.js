@@ -391,9 +391,9 @@ export function practiceTableView(round) {
 }
 
 function freshPracticeData() {
-  const mode = (name) => ({ settings: { smallBlind: PRACTICE_STAKES[name][0][0], bigBlind: PRACTICE_STAKES[name][0][1] },
+  const mode = (smallBlind, bigBlind) => ({ settings: { smallBlind, bigBlind },
     stats: { played: 0, correct: 0, current: 0, best: 0 }, lastRoundId: null });
-  return { version: 1, live: mode("live"), online: mode("online"), pending: null };
+  return { version: 1, live: mode(5, 10), online: mode(1, 2), pending: null };
 }
 
 function validatePracticeData(data) {

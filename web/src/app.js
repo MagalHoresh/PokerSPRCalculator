@@ -366,7 +366,7 @@ class PracticeUI {
     this.onlineUnit = "chips";
     this.round = null;
     this.store = new PracticeStore(null);
-    this.draft = new PracticeBetDraft("live", 2, separator);
+    this.draft = new PracticeBetDraft("live", this.store.data.live.settings.bigBlind, separator);
     this.work = Promise.resolve();
     this.busy = 0;
     this.ready = false;
